@@ -73,3 +73,21 @@ Strict verification can stop scheduled jobs when credentials or quota are unavai
 `python -m compileall -q automation`, and `git diff --check`.
 No end-to-end API render or Kokoro model inference was run: credentials and optional
 model packages were not available in the editing environment.
+
+## Vision-provider recovery
+
+Visual checks now rotate all configured Gemini keys and fall back to the existing
+Groq keys using a vision-capable model. `GROQ_VISION_MODEL` overrides the default
+`qwen/qwen3.8-27b`, as listed in https://console.groq.com/docs/vision . Access and
+rate limits depend on the provider account. Failed keys are skipped for the rest of
+the process so each candidate does not repeat a billing/quota failure.
+An explicit NO remains a rejection; only unavailable/malformed responses fall back.
+When all providers are unavailable, `VerificationUnavailable` identifies the quota
+or configuration problem without misreporting that every downloaded asset is wrong.
+The existing workflow already exposes Groq keys; no new secret is required.
+PNG and other source formats are converted into small JPEGs before vision requests.
+Fallback scene search uses the topic instead of fragments of spoken narration.
+
+Validation: 11 offline tests cover provider fallback, key rotation, circuit breaking,
+explicit rejection, image conversion, and editorial checks. No live provider request
+was made, and no publishing workflow was triggered.

@@ -26,7 +26,7 @@ def prepare_scenes(scenes, script, topic):
     actual = _words(' '.join(s['narration'] for s in scenes))
     if actual != _words(script):
         # Sentence boundaries preserve decimals, unlike split('.'). Never lose the ending.
-        scenes = [{'narration': s, 'visual_type': 'image', 'image_cue': ' '.join(re.findall(r'[A-Za-z]{3,}', s)[:7]) or topic}
+        scenes = [{'narration': s, 'visual_type': 'image', 'image_cue': topic}
                   for s in re.split(r'(?<=[.!?])\s+', script.strip()) if s]
     result = []
     for scene in scenes:

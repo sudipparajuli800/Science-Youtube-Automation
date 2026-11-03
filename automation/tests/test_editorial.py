@@ -32,11 +32,9 @@ class EditorialTests(unittest.TestCase):
         self.assertTrue(all(len(s['narration'].split()) <= 18 for s in result))
         self.assertEqual(' '.join(s['narration'] for s in result), script)
 
-    def test_strict_relevance_rejects_missing_asset_and_missing_client(self):
+    def test_strict_relevance_rejects_missing_asset(self):
         self.assertFalse(is_visually_relevant('missing.jpg', 'a cell', strict=True))
-        with patch('automation.media.visual_relevance.os.path.exists', return_value=True), \
-             patch('automation.media.visual_relevance._get_client', return_value=None):
-            self.assertFalse(is_visually_relevant('cell.jpg', 'a cell', strict=True))
+
 
 
 if __name__ == '__main__':

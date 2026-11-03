@@ -195,7 +195,7 @@ class AssetOrchestrator:
                 # with AI from the actual narration instead of using a real photo we
                 # already determined doesn't match the script.
                 print(f"[AssetOrchestrator] Scene {idx}: none of {len(paths)} image candidate(s) passed the "
-                      f"relevance check for '{relevance_desc[:60]}...' — generating an AI image instead.")
+                      f"relevance check for '{relevance_desc[:60]}...' — no verified stock image available.")
                 chosen_image = self._generate_relevant_ai_image(relevance_desc, f"job_{job_id}_scene{idx}_ai")
             if chosen_image:
                 asset_path = chosen_image

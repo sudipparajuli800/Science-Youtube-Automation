@@ -5,21 +5,79 @@ import os
 import re
 
 _MODEL_CANDIDATES = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.0-flash']
-_MAX_BYTES = 4 * 1024 * 1024  # keep the vision request small/fast
 
 
-def _get_client():
+class VerificationUnavailable(RuntimeError):
+    """All vision providers are unavailable; this is not a visual rejection."""
+
+
+# Per-process circuit breaker: stop hammering a failed key for every candidate.
+_UNAVAILABLE_KEYS = set()
+
+
+def _keys(prefix):
+    return list(dict.fromkeys(os.getenv(prefix + suffix, '').strip()
+                for suffix in ('', '2', '3') if os.getenv(prefix + suffix, '').strip()))
+
+
+def _verdict(answer):
+    answer = (answer or '').strip().upper().rstrip('.')
+    return {'YES': True, 'NO': False}.get(answer)
+
+
+def _check_gemini(img_bytes, prompt):
     try:
         from google import genai
+        from google.genai import types
     except ImportError:
         return None
-    for key_name in ("GEMINI_API_KEY", "GEMINI_API_KEY2", "GEMINI_API_KEY3"):
-        val = os.getenv(key_name, "").strip()
-        if val:
-            try:
-                return genai.Client(api_key=val)
-            except Exception:
-                continue
+    for key in _keys('GEMINI_API_KEY'):
+        if ('gemini', key) in _UNAVAILABLE_KEYS:
+            continue
+        try:
+            client = genai.Client(api_key=key)
+            for model in _MODEL_CANDIDATES:
+                try:
+                    response = client.models.generate_content(model=model, contents=[
+                        types.Part.from_bytes(data=img_bytes, mime_type='image/jpeg'), prompt])
+                    verdict = _verdict(response.text)
+                    if verdict is not None:
+                        return verdict
+                except Exception as error:
+                    if '404' in str(error):
+                        continue
+                    # Quota, billing and transport errors: try another key/provider.
+                    break
+        except Exception:
+            pass
+        _UNAVAILABLE_KEYS.add(('gemini', key))
+        print('[VisualRelevance] Gemini key unavailable; trying next vision provider/key.')
+    return None
+
+
+def _check_groq(img_bytes, prompt):
+    import base64
+    import requests
+    for key in _keys('GROQ_API_KEY'):
+        if ('groq', key) in _UNAVAILABLE_KEYS:
+            continue
+        try:
+            response = requests.post('https://api.groq.com/openai/v1/chat/completions',
+                headers={'Authorization': 'Bearer ' + key}, timeout=30,
+                json={'model': os.getenv('GROQ_VISION_MODEL', 'qwen/qwen3.8-27b'),
+                      'max_completion_tokens': 256,
+                      'messages': [{'role': 'user', 'content': [
+                          {'type': 'text', 'text': prompt},
+                          {'type': 'image_url', 'image_url': {'url':
+                              'data:image/jpeg;base64,' + base64.b64encode(img_bytes).decode()}}]}]})
+            response.raise_for_status()
+            verdict = _verdict(response.json()['choices'][0]['message']['content'])
+            if verdict is not None:
+                return verdict
+        except Exception:
+            pass
+        _UNAVAILABLE_KEYS.add(('groq', key))
+        print('[VisualRelevance] Groq vision key unavailable; trying next key.')
     return None
 
 
@@ -43,7 +101,7 @@ def _extract_frame_if_video(path: str) -> str:
 def is_visually_relevant(asset_path: str, description: str, strict: bool = False) -> bool:
     """
     Returns True if the image (or video's mid-frame) plausibly depicts `description`.
-    Strict mode rejects missing assets, missing clients, and failed checks.
+    Strict mode rejects missing assets and raises when all vision providers fail.
     `strict=True` asks the model to be more skeptical — used when we already have a
     generous pool of candidates, so it's safe to be pickier about which one wins.
     """
@@ -52,21 +110,20 @@ def is_visually_relevant(asset_path: str, description: str, strict: bool = False
     if not asset_path or not os.path.exists(asset_path):
         return not strict
 
-    client = _get_client()
-    if not client:
-        return not strict
-
     still_path = _extract_frame_if_video(asset_path)
     if not still_path or not os.path.exists(still_path):
         return not strict
 
     try:
-        if os.path.getsize(still_path) > _MAX_BYTES:
-            return not strict  # skip check rather than upload something huge; not worth the latency
-        with open(still_path, "rb") as f:
-            img_bytes = f.read()
-    except Exception as e:
-        print(f"[VisualRelevance] Could not read {still_path}: {e}")
+        from io import BytesIO
+        from PIL import Image
+        with Image.open(still_path) as image:
+            image = image.convert('RGB')
+            image.thumbnail((1024, 1024))
+            buffer = BytesIO()
+            image.save(buffer, format='JPEG', quality=85)
+            img_bytes = buffer.getvalue()
+    except Exception:
         return not strict
     finally:
         if still_path != asset_path and os.path.exists(still_path):
@@ -89,27 +146,13 @@ def is_visually_relevant(asset_path: str, description: str, strict: bool = False
         "Answer with exactly one word: YES or NO."
     )
 
-    try:
-        from google.genai import types
-    except ImportError:
-        return not strict
-
-    for model_id in _MODEL_CANDIDATES:
-        try:
-            response = client.models.generate_content(
-                model=model_id,
-                contents=[
-                    types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"),
-                    prompt,
-                ],
-            )
-            answer = (response.text or "").strip().upper()
-            return answer.startswith("Y")
-        except Exception as e:
-            err = str(e).lower()
-            if "404" in err and ("model" in err or "not_found" in err):
-                continue  # try the next candidate model
-            print(f"[VisualRelevance] Check failed ({model_id}): {str(e)[:150]}")
-            return not strict  # fail open on quota/transient/unexpected errors
-
-    return not strict
+    for check in (_check_gemini, _check_groq):
+        verdict = check(img_bytes, prompt)
+        if verdict is not None:
+            return verdict
+    if strict:
+        raise VerificationUnavailable(
+            "Visual verification unavailable on all Gemini and Groq keys. "
+            "Check provider quota/billing or GROQ_VISION_MODEL access, then retry. "
+            "No candidate was rejected for content and no unverified asset was accepted.")
+    return True
