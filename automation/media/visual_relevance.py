@@ -1,12 +1,5 @@
-"""
-AI-based relevance check for fetched b-roll: rejects a stock photo/video that doesn't
-actually depict what the scene's narration is about, using Gemini's vision capability
-(the same provider/keys already used for script and scene generation, so no new API
-key is required). Deliberately fails OPEN — if the check itself errors out (quota,
-network, model unavailable), the candidate is treated as relevant rather than blocking
-the pipeline. A plausibly-relevant image that skipped verification beats a hard
-pipeline failure; the goal is to catch the CLEARLY wrong ones DDG/Pexels/Pixabay
-occasionally return for garbled or generic queries, not to guarantee perfection.
+"""Vision-based shot verification. Strict mode rejects unavailable checks.
+The video orchestrator uses strict mode; legacy callers retain permissive behavior.
 """
 import os
 import re
@@ -50,31 +43,31 @@ def _extract_frame_if_video(path: str) -> str:
 def is_visually_relevant(asset_path: str, description: str, strict: bool = False) -> bool:
     """
     Returns True if the image (or video's mid-frame) plausibly depicts `description`.
-    Fails open (returns True) whenever the check can't actually run or errors out.
+    Strict mode rejects missing assets, missing clients, and failed checks.
     `strict=True` asks the model to be more skeptical — used when we already have a
     generous pool of candidates, so it's safe to be pickier about which one wins.
     """
     if not description or not description.strip():
-        return True
+        return not strict
     if not asset_path or not os.path.exists(asset_path):
-        return True
+        return not strict
 
     client = _get_client()
     if not client:
-        return True
+        return not strict
 
     still_path = _extract_frame_if_video(asset_path)
     if not still_path or not os.path.exists(still_path):
-        return True
+        return not strict
 
     try:
         if os.path.getsize(still_path) > _MAX_BYTES:
-            return True  # skip check rather than upload something huge; not worth the latency
+            return not strict  # skip check rather than upload something huge; not worth the latency
         with open(still_path, "rb") as f:
             img_bytes = f.read()
     except Exception as e:
         print(f"[VisualRelevance] Could not read {still_path}: {e}")
-        return True
+        return not strict
     finally:
         if still_path != asset_path and os.path.exists(still_path):
             try:
@@ -99,7 +92,7 @@ def is_visually_relevant(asset_path: str, description: str, strict: bool = False
     try:
         from google.genai import types
     except ImportError:
-        return True
+        return not strict
 
     for model_id in _MODEL_CANDIDATES:
         try:
@@ -117,6 +110,6 @@ def is_visually_relevant(asset_path: str, description: str, strict: bool = False
             if "404" in err and ("model" in err or "not_found" in err):
                 continue  # try the next candidate model
             print(f"[VisualRelevance] Check failed ({model_id}): {str(e)[:150]}")
-            return True  # fail open on quota/transient/unexpected errors
+            return not strict  # fail open on quota/transient/unexpected errors
 
-    return True
+    return not strict

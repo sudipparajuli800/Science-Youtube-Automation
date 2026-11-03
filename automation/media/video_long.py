@@ -237,18 +237,8 @@ class VideoLongGenerator:
             self.scenes = scenes
             
             # Rule-based transition assignment
-            transitions = []
-            for i in range(len(scenes) - 1):
-                curr_type = scenes[i].get("visual_type", "image")
-                next_type = scenes[i+1].get("visual_type", "image")
+            transitions = ["cut"] * len(scenes)
 
-                if next_type in ("hook_question", "kinetic_stat", "data_bars"):
-                    transitions.append("flash")
-                elif (curr_type == "image" and next_type == "ai_video") or (curr_type == "ai_video" and next_type == "image"):
-                    transitions.append("fade")
-                else:
-                    transitions.append("cut")
- 
             renderer = SceneRenderer(mode='landscape')
             
             for i, scene in enumerate(scenes):
@@ -315,39 +305,9 @@ class VideoLongGenerator:
                     
                 except Exception as e:
                     print(f"[VideoLong] Scene {i} render error ({vtype}): {e}")
-                    bg_clips.append(
-                        ColorClip(size=self.size, color=(10, 10, 25), duration=clip_duration)
-                        .set_start(clip_start)
-                    )
-                
-                # Apply transition effects & SFX at boundaries
-                if i > 0:
-                    trans = transitions[i-1]
-                    if trans == "flash":
-                        flash = ColorClip(size=self.size, color=(255, 255, 255), duration=0.0667)
-                        flash = flash.set_start(start_t - 0.0333).set_position("center")
-                        bg_clips.append(flash)
+                    raise RuntimeError(f"Scene {i} failed to render") from e
 
-                        # Distinct SFX per landing scene type instead of always "whoosh" —
-                        # a stat/chart reveal should land with a punch, a hook question
-                        # should build tension, everything else keeps the airy whoosh.
-                        if vtype in ("kinetic_stat", "data_bars"):
-                            flash_sfx = "impact.mp3"
-                        elif vtype == "hook_question":
-                            flash_sfx = "riser.mp3"
-                        else:
-                            flash_sfx = "whoosh.mp3"
-                        sfx_path = os.path.join(sfx_dir, flash_sfx)
-                        if os.path.exists(sfx_path):
-                            self.sfx_events.append({"time": start_t - 0.0333, "file": flash_sfx})
-                    elif trans == "fade":
-                        sfx_path = os.path.join(sfx_dir, "dong.mp3")
-                        if os.path.exists(sfx_path):
-                            self.sfx_events.append({"time": start_t, "file": "dong.mp3"})
-                    elif trans == "cut":
-                        sfx_path = os.path.join(sfx_dir, "sweep.mp3")
-                        if os.path.exists(sfx_path):
-                            self.sfx_events.append({"time": start_t, "file": "sweep.mp3"})
+                # Narration-led hard cuts. No transition noise on every shot.
 
         elif media_paths and len(media_paths) > 0:
             # Multi-media background (e.g. Science long form)
@@ -429,12 +389,12 @@ class VideoLongGenerator:
         
         from .caption_style import get_pop_font, build_pop_chunks, make_pop_caption_clip, LANDSCAPE_CAPTION_Y_FRACTION
 
-        pop_font = get_pop_font(110)
+        pop_font = get_pop_font(60)
         pop_chunks = build_pop_chunks(word_offsets)
 
         # Subscribe badge occupies the bottom area for the final few seconds — reserve
         # that window before laying out captions so the two never overlap.
-        badge_dur = min(5.0, total_duration)
+        badge_dur = 0.0
         badge_start = max(0.0, total_duration - badge_dur)
 
         # Shared position constant (also used by hook_question's text in
@@ -489,7 +449,7 @@ class VideoLongGenerator:
 
         final_video = CompositeVideoClip([final_bg] + caption_clips, size=self.size).set_audio(audio)
         
-        audio_mix = [audio.volumex(1.15)]
+        audio_mix = [audio]
         
         music_files = []
         science_music_dirs = ["automation/music/science"]
@@ -512,7 +472,7 @@ class VideoLongGenerator:
                     bg_music = bg_music.set_duration(total_duration)
                 
                 # Dimmer volume as requested: 0.04 instead of 0.07/0.12
-                bg_music = bg_music.volumex(0.04)
+                bg_music = bg_music.volumex(0.025)
                 audio_mix.append(bg_music)
             except Exception as e:
                 print(f"Music Loop Error: {e}")
@@ -525,7 +485,7 @@ class VideoLongGenerator:
                   sfx_path = os.path.join(sfx_dir, sfx_file)
                   if os.path.exists(sfx_path):
                       try:
-                          sfx_clip = AudioFileClip(sfx_path).set_start(event['time']).volumex(0.5)
+                          sfx_clip = AudioFileClip(sfx_path).set_start(event['time']).volumex(0.12)
                           audio_mix.append(sfx_clip)
                       except Exception as e:
                           print(f"SFX load error for {sfx_file}: {e}")

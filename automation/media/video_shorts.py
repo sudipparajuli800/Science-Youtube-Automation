@@ -244,14 +244,14 @@ class VideoShortsGenerator:
 
             from .caption_style import get_pop_font, build_pop_chunks, make_pop_caption_clip, PORTRAIT_CAPTION_Y_FRACTION
 
-            pop_font = get_pop_font(102)
+            pop_font = get_pop_font(72)
             pop_chunks = build_pop_chunks(word_offsets)
 
             # Shared position constant — matches hook_question's text and
             # create_shorts_from_scenes below, so every caption in the video (including
             # the opening hook) sits at the same spot instead of jumping around.
             caption_y = int(self.size[1] * PORTRAIT_CAPTION_Y_FRACTION)
-            badge_dur = min(3.0, duration)
+            badge_dur = 0.0
             badge_start = max(0.0, duration - badge_dur)
 
             for i, chunk in enumerate(pop_chunks):
@@ -461,46 +461,13 @@ class VideoShortsGenerator:
 
                 except Exception as e:
                     print(f"[Shorts Scene {i+1}] RENDER ERROR ({scene_type}): {e}. Using fallback.")
-                    scene_clips.append(ColorClip(size=(1080, 1920), color=(10, 18, 30), duration=dur))
+                    raise RuntimeError(f"Scene {i+1} failed to render; refusing a blank replacement") from e
 
-            # ── 4. Apply 58s Limit ───────────────────────────
-            final_clips = []
-            cum_dur = 0
-            for i, clip in enumerate(scene_clips):
-                if cum_dur + clip.duration > 58.0:
-                    print(f"[Shorts] Scene {i+1} pushes total duration > 58s. Dropping remaining scenes.")
-                    break
-                final_clips.append(clip)
-                cum_dur += clip.duration
-
-            if not final_clips:
-                raise ValueError("No clips available after applying duration limits.")
-            from moviepy.editor import ColorClip
-            flash_dur = 0.08
-            
-            # Save the capped clips so we only add flashes between them
-            capped_clips = final_clips
-            final_clips = []
+            # Cuts stay on narration boundaries; inserted flashes used to desync captions.
+            final_clips = scene_clips
             self.sfx_events = []
-            curr_pos = 0.0
-            
-            for i, c in enumerate(capped_clips):
-                final_clips.append(c)
-                curr_pos += c.duration
-                if i < len(capped_clips) - 1:
-                    flash = ColorClip(size=(1080, 1920), color=(255, 255, 255), duration=flash_dur)
-                    final_clips.append(flash)
-                    # Distinct SFX for the scene being landed on — a stat/chart should
-                    # punch, not just whoosh like every other cut.
-                    next_type = scenes[i + 1].get("visual_type", "image") if i + 1 < len(scenes) else "image"
-                    if next_type in ("kinetic_stat", "data_bars"):
-                        transition_sfx = "impact.mp3"
-                    elif next_type == "hook_question":
-                        transition_sfx = "riser.mp3"
-                    else:
-                        transition_sfx = "whoosh.mp3"
-                    self.sfx_events.append({"time": curr_pos, "file": transition_sfx})
-                    curr_pos += flash_dur
+            if total_duration > 58.0:
+                raise ValueError("Short narration exceeds 58 seconds; shorten the script before rendering.")
 
             combined = concatenate_videoclips(final_clips, method="compose")
 
@@ -516,7 +483,7 @@ class VideoShortsGenerator:
 
             # Subscribe badge occupies the bottom area for the final few seconds — reserve
             # that window so late captions don't render on top of / behind it (see 5b).
-            badge_dur = min(3.0, total_duration)
+            badge_dur = 0.0
             badge_start = max(0.0, total_duration - badge_dur)
 
             # ── 5. Overlay pop-up captions ──────────────────────────────────────
@@ -524,7 +491,7 @@ class VideoShortsGenerator:
                 try:
                     from .caption_style import get_pop_font, build_pop_chunks, make_pop_caption_clip, PORTRAIT_CAPTION_Y_FRACTION
 
-                    pop_font = get_pop_font(102)
+                    pop_font = get_pop_font(72)
                     pop_chunks = build_pop_chunks(word_offsets)
 
                     # Shared position constant — same spot as hook_question's text and the
@@ -582,7 +549,7 @@ class VideoShortsGenerator:
                     sfx_path = os.path.join(sfx_dir, event["file"])
                     if os.path.exists(sfx_path):
                         try:
-                            sfx_clip = AudioFileClip(sfx_path).set_start(event["time"]).volumex(0.65)
+                            sfx_clip = AudioFileClip(sfx_path).set_start(event["time"]).volumex(0.15)
                             sfx_clips.append(sfx_clip)
                         except Exception as s_err:
                             print(f"[Shorts] SFX error: {s_err}")
@@ -598,18 +565,18 @@ class VideoShortsGenerator:
                     if bg_music.duration > 4:
                         bg_music = bg_music.audio_fadein(2).audio_fadeout(2)
                     from moviepy.audio.AudioClip import CompositeAudioClip
-                    final_audio = CompositeAudioClip([audio.volumex(1.4), bg_music] + sfx_clips)
+                    final_audio = CompositeAudioClip([audio, bg_music] + sfx_clips)
                 except Exception as me:
                     print(f"[Shorts] BG music error: {me}")
                     if sfx_clips:
                         from moviepy.audio.AudioClip import CompositeAudioClip
-                        final_audio = CompositeAudioClip([audio.volumex(1.4)] + sfx_clips)
+                        final_audio = CompositeAudioClip([audio] + sfx_clips)
                     else:
                         final_audio = audio
             else:
                 if sfx_clips:
                     from moviepy.audio.AudioClip import CompositeAudioClip
-                    final_audio = CompositeAudioClip([audio.volumex(1.4)] + sfx_clips)
+                    final_audio = CompositeAudioClip([audio] + sfx_clips)
                 else:
                     final_audio = audio
 

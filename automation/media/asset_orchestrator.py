@@ -2,6 +2,7 @@ import os
 import json
 import uuid
 import datetime
+import hashlib
 from typing import List, Dict
 
 from .hf_video_generator import generate_hf_video
@@ -10,7 +11,7 @@ from . import stock_media
 from . import visual_relevance
 
 MAX_AI_VIDEO_PER_JOB = 3     # Per-video cap to protect HF monthly quota
-MAX_STOCK_VIDEO_PER_JOB = 5  # Per-video cap to keep download/render time bounded
+MAX_STOCK_VIDEO_PER_JOB = 40  # Per-video cap to keep download/render time bounded
 RELEVANCE_CHECK_ENABLED = os.getenv("DISABLE_VISUAL_RELEVANCE_CHECK", "").strip().lower() not in ("1", "true", "yes")
 MAX_RELEVANCE_CHECKS_PER_SCENE = 3  # bound latency/Gemini-quota usage per scene
 
@@ -27,6 +28,7 @@ class AssetOrchestrator:
     def __init__(self, hf_token: str = None):
         self.hf_token = hf_token or os.getenv("HF_TOKEN", "")
         self.image_fetcher = ImageFetcher()
+        self._used_assets = set()
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
@@ -34,11 +36,13 @@ class AssetOrchestrator:
         """
         Process all scenes and return the full job manifest dict with all 6 visual types.
         """
+        self._used_assets.clear()
         today = datetime.date.today().isoformat()
+        plan_hash = hashlib.sha256(json.dumps(scenes, sort_keys=True).encode()).hexdigest()
 
         # ── Resume support: check for existing manifest ────────────────────────
         existing = self._find_existing_manifest(topic, today)
-        if existing and existing.get("aspect_ratio") == aspect_ratio:
+        if existing and existing.get("aspect_ratio") == aspect_ratio and existing.get("plan_hash") == plan_hash and len(existing.get("scenes", [])) == len(scenes):
             print(f"[AssetOrchestrator] Resuming from existing manifest: {existing['job_id']}")
             return existing
 
@@ -49,6 +53,7 @@ class AssetOrchestrator:
 
         manifest = {
             "job_id": job_id,
+            "plan_hash": plan_hash,
             "job_dir": job_dir,
             "topic": topic,
             "date": today,
@@ -173,19 +178,17 @@ class AssetOrchestrator:
             # dragged every non-space scene (chemistry, biology, psychology...) toward irrelevant
             # deep-space b-roll. Use a topic-neutral second phrasing instead.
             queries = [
-                f"{image_cue} cinematic 4k",
-                f"{image_cue} documentary photography",
+                image_cue,
+                f"{image_cue} photo",
             ]
             # Sleep slightly to avoid DDG rate limits between scenes
             if idx > 0:
                 import time
                 time.sleep(2.5)
-            paths = self.image_fetcher.fetch_multi_images(
-                queries,
-                base_filename=f"job_{job_id}_scene{idx}",
-                topic_context=topic,
-                portrait=(aspect_ratio == "9:16"),
-            )
+            # Official stock APIs preserve a clear license trail; no web-image scraping.
+            paths = stock_media.fetch_real_photos(
+                image_cue, MAX_RELEVANCE_CHECKS_PER_SCENE, job_dir,
+                f"job_{job_id}_scene{idx}", portrait=(aspect_ratio == "9:16"))
             chosen_image = self._pick_relevant_asset(paths, relevance_desc)
             if not chosen_image and paths:
                 # Every fetched candidate failed the relevance check — generate one
@@ -204,6 +207,12 @@ class AssetOrchestrator:
                 scene_entry["asset_type"] = "none"
                 scene_entry["asset_path"] = None
 
+            if visual_type in ("image", "ai_video") and not scene_entry["asset_path"]:
+                raise RuntimeError(f"Scene {idx} has no verified visual: {image_cue}. Supply a relevant asset before publishing.")
+            source_path = (scene_entry.get("asset_path") or "") + ".source.json"
+            if os.path.isfile(source_path):
+                with open(source_path, encoding="utf-8") as credit:
+                    scene_entry["source"] = json.load(credit)
             manifest["scenes"].append(scene_entry)
             self._save_manifest(manifest)
 
@@ -271,7 +280,12 @@ class AssetOrchestrator:
         if not RELEVANCE_CHECK_ENABLED or not description:
             return candidates[0]
         for path in candidates[:MAX_RELEVANCE_CHECKS_PER_SCENE]:
-            if visual_relevance.is_visually_relevant(path, description):
+            with open(path, "rb") as asset:
+                digest = hashlib.sha256(asset.read()).hexdigest()
+            if digest in self._used_assets:
+                continue
+            if visual_relevance.is_visually_relevant(path, description, strict=True):
+                self._used_assets.add(digest)
                 return path
         return None
 
@@ -279,6 +293,8 @@ class AssetOrchestrator:
         """Last resort when no fetched photo/video passes the relevance check: generate
         one with Pollinations.ai using the scene's actual narration as the prompt,
         rather than falling back to a generic/possibly-irrelevant real photo."""
+        if os.getenv("ALLOW_GENERATED_ILLUSTRATIONS", "").lower() != "true":
+            return None
         try:
             paths = self.image_fetcher._generate_pollinations_images(description, base_filename, count=1)
             return paths[0] if paths else None

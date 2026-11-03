@@ -31,12 +31,12 @@ LANDSCAPE_CAPTION_Y_FRACTION = 0.78
 
 # Caption-specific accent — deliberately distinct from the cyan HUD/lower-third accent
 # so highlighted words pop against both the pill and the cyan sci-fi overlay elements.
-HIGHLIGHT_COLOR = (255, 199, 40)
+HIGHLIGHT_COLOR = (142, 218, 224)
 NORMAL_COLOR = (255, 255, 255)
-PILL_FILL = (8, 13, 24, 232)
+PILL_FILL = (8, 13, 24, 205)
 
 _FONT_PATHS = [
-    "automation/fonts/Barlow-CondensedBold.ttf",
+    "automation/fonts/Barlow-Regular.ttf",
     "automation/fonts/Barlow-Bold.ttf",
     "automation/media/assets/Montserrat-Black.ttf",
     "automation/media/assets/Montserrat-ExtraBold.ttf",
@@ -58,7 +58,7 @@ def get_pop_font(size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default()
 
 
-def build_pop_chunks(word_offsets: list, max_words: int = 3) -> list:
+def build_pop_chunks(word_offsets: list, max_words: int = 5) -> list:
     """Groups timed words into 2-3 word display chunks, flushing early on punctuation."""
     chunks = []
     cur_chunk, cur_len = [], 0
@@ -82,10 +82,10 @@ def build_pop_chunks(word_offsets: list, max_words: int = 3) -> list:
 def render_caption_pill(words_display: list, highlight_mask: list, font, max_w: int = 900) -> Image.Image:
     """Renders one caption chunk as an RGBA image: a rounded dark pill behind bold
     white/gold text, sized to fit its content at any chunk length."""
-    STROKE, SHADOW = 2, 3
-    HP, VP = 34, 24        # text padding inside the pill
+    STROKE, SHADOW = 0, 0
+    HP, VP = 26, 18        # text padding inside the pill
     MARGIN = 16             # room around the pill for stroke/shadow overflow
-    RADIUS = 26
+    RADIUS = 12
 
     dummy = Image.new('RGB', (1, 1))
     dd = ImageDraw.Draw(dummy)
@@ -159,7 +159,7 @@ def make_pop_caption_clip(chunk: list, chunk_dur: float, font, max_w: int = 900,
     """
     from moviepy.editor import ImageClip, CompositeVideoClip
 
-    words_display = [c['display'].upper() for c in chunk]
+    words_display = [c['display'] for c in chunk]
     n = len(chunk)
     chunk_start = chunk[0]['start']
 
@@ -190,7 +190,7 @@ def make_pop_caption_clip(chunk: list, chunk_dur: float, font, max_w: int = 900,
         combined = combined.fadein(anim_dur)
     except Exception:
         pass
-    rise_px = 16
+    rise_px = 0
     combined = combined.set_position(
         lambda t, ad=anim_dur, y=caption_y: ('center', y + int(rise_px * (1.0 - min(1.0, t / max(ad, 0.001)))))
     )

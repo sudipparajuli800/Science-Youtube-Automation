@@ -64,8 +64,8 @@ def wrap_text(text, font, max_width):
 def apply_cinematic_grade(pil_img):
     """Applies a premium cinematic color grade, vignette, and contrast boost."""
     # Contrast and color saturation boost
-    pil_img = ImageEnhance.Contrast(pil_img).enhance(1.18)
-    pil_img = ImageEnhance.Color(pil_img).enhance(1.06)
+    pil_img = ImageEnhance.Contrast(pil_img).enhance(1.03)
+    pil_img = ImageEnhance.Color(pil_img).enhance(1.0)
     
     # Create smooth radial vignette using numpy
     w, h = pil_img.size
@@ -75,7 +75,7 @@ def apply_cinematic_grade(pil_img):
     r = np.sqrt(xx**2 + yy**2)
     
     # Smooth roll-off: vignette starts at r=0.45, reaches max opacity 140 at r=1.4
-    alpha = np.clip((r - 0.45) / 0.95 * 140, 0, 140).astype(np.uint8)
+    alpha = np.clip((r - 0.45) / 0.95 * 35, 0, 35).astype(np.uint8)
     
     v_arr = np.zeros((h, w, 4), dtype=np.uint8)
     v_arr[:, :, 3] = alpha
@@ -89,6 +89,7 @@ def apply_lens_flare(pil_img, t: float = 0.0, intensity: float = 0.4):
     Adds a subtle animated lens flare streak across the image.
     The flare position slowly drifts over time for a premium cinematic feel.
     """
+    return pil_img  # Preserve documentary source imagery without synthetic flare.
     w, h = pil_img.size
     overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(overlay)
@@ -114,6 +115,7 @@ def draw_starfield_overlay(draw, width, height, t: float, star_count: int = 80,
     Draws animated stars onto the given ImageDraw canvas.
     Stars slowly drift and twinkle over time.
     """
+    return  # Decorative star fields misrepresent non-astronomy subjects.
     rng = random.Random(seed)
     for _ in range(star_count):
         sx = rng.randint(0, width)
@@ -134,6 +136,7 @@ def draw_scan_lines(img_array: np.ndarray, opacity: float = 0.06) -> np.ndarray:
     """
     Overlays subtle horizontal scan-line darkening for a sci-fi monitor effect.
     """
+    return img_array
     h, w = img_array.shape[:2]
     mask = np.ones((h, w, 3), dtype=np.float32)
     # Darken every other 2px band
@@ -147,6 +150,7 @@ def draw_data_hud(draw, width, height, t: float, mode='landscape',
     Draws a minimalist HUD corner decoration — corner brackets + animated blinking dot.
     Gives images a premium futuristic science-channel look.
     """
+    return  # No fictional instrument/HUD markings on scientific footage.
     margin = 28 if mode == 'landscape' else 20
     bar_len = 50 if mode == 'landscape' else 35
     thick = 3
@@ -554,7 +558,7 @@ class SceneRenderer:
         def make_frame(t):
             # Ken Burns effect
             if self.mode == 'portrait':
-                scale = 1.0 + 0.15 * (t / duration)
+                scale = 1.0 + 0.035 * (t / duration)
                 cw, ch = int(self.WIDTH / scale), int(self.HEIGHT / scale)
                 
                 if pan_type == 0:
@@ -567,7 +571,7 @@ class SceneRenderer:
                     y_start = 0
                 else:
                     # pan-left-to-right (no zoom, or slight zoom to allow pan)
-                    cw, ch = int(self.WIDTH / 1.15), int(self.HEIGHT / 1.15)
+                    cw, ch = int(self.WIDTH / 1.035), int(self.HEIGHT / 1.035)
                     max_x = img_w - cw
                     x_start = int(max_x * (t / duration))
                     y_start = (img_h - ch) // 2

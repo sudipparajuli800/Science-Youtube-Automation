@@ -7,7 +7,7 @@ tts_voice:
   hume_voice_id: ""   # Set via HUME_VOICE_ID env var; leave blank to use env var
   style: "calm"
   rate: "-5%"
-  pitch: "-12Hz"
+  pitch: "+0Hz"
 upload:
   shorts: true
   long: true
@@ -47,7 +47,7 @@ hashtags: "#DailyDeepSpace #BeyondEarth #SpaceFacts #ScienceShorts #Universe #Co
 branding:
   accent_color: "#00FFFF" # Soft Cyan
   bg_color: [11, 28, 45] # Dark Blue (#0B1C2D)
-  music_volume: 0.08      # Target -25 to -30 LUFS
+  music_volume: 0.025      # Target -25 to -30 LUFS
 storage:
   posted_science: "automation/storage/posted_science.json"
-  music_science: "automation/musics/science/"
+  music_science: "automation/music/science/"

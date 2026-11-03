@@ -258,10 +258,10 @@ class ThumbnailGenerator:
             accent_y1 = 150
             accent_y2 = 480
             bar_thickness = 8
-        draw.rectangle([(accent_x, accent_y1), (accent_x + bar_thickness, accent_y2)], fill=(0, 240, 255))
+        draw.rectangle([(accent_x, accent_y1), (accent_x + bar_thickness, accent_y2)], fill=(142, 218, 224))
         
         # 5. Draw Hook Phrase Text (large, bold, left-aligned)
-        font_path = "automation/fonts/Barlow-CondensedBold.ttf"
+        font_path = "automation/fonts/Barlow-Bold.ttf"
         if is_portrait:
             hook_font_size = 95
             line_spacing = 130
@@ -289,7 +289,7 @@ class ThumbnailGenerator:
             
         def draw_stroke_text(d, t, pos, fn, text_color):
             tx, ty = pos
-            stroke = 5
+            stroke = 1
             for dx in range(-stroke, stroke+1):
                 for dy in range(-stroke, stroke+1):
                     if dx == 0 and dy == 0: continue
@@ -298,7 +298,7 @@ class ThumbnailGenerator:
             
         draw_stroke_text(draw, line1, (text_x, text_y), font, (255, 255, 255))
         if line2:
-            draw_stroke_text(draw, line2, (text_x, text_y + line_spacing), font, (0, 240, 255))
+            draw_stroke_text(draw, line2, (text_x, text_y + line_spacing), font, (142, 218, 224))
             
         # 6. Draw Bottom Supporting Fact Strip
         if is_portrait:

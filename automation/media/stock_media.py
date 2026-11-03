@@ -21,6 +21,7 @@ Setup (both free, ~2 minutes each, no credit card):
 import os
 import re
 import time
+import json
 import requests
 
 _UA = (
@@ -82,6 +83,11 @@ def fetch_pexels_photos(query: str, count: int, dest_dir: str, base_filename: st
                 continue
             path = _download(src, dest_dir, f"{base_filename}_{i}_pexels.jpg")
             if path:
+                source = photo
+                with open(path + ".source.json", "w", encoding="utf-8") as credit:
+                    json.dump({"provider": "Pexels", "id": source.get("id"),
+                               "url": source.get("url"), "creator": source.get("photographer") or source.get("user", {}).get("name"),
+                               "license": "https://www.pexels.com/license/"}, credit)
                 paths.append(path)
             if len(paths) >= count:
                 break
@@ -125,6 +131,11 @@ def fetch_pexels_videos(query: str, count: int, dest_dir: str, base_filename: st
                 continue
             path = _download(link, dest_dir, f"{base_filename}_{i}_pexels.mp4", min_bytes=20000, timeout=45)
             if path:
+                source = video
+                with open(path + ".source.json", "w", encoding="utf-8") as credit:
+                    json.dump({"provider": "Pexels", "id": source.get("id"),
+                               "url": source.get("url"), "creator": source.get("photographer") or source.get("user", {}).get("name"),
+                               "license": "https://www.pexels.com/license/"}, credit)
                 paths.append(path)
             if len(paths) >= count:
                 break

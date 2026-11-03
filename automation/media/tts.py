@@ -87,6 +87,10 @@ class TTSEngine:
 
         text = re.sub(r'\s+', ' ', text)
 
+        if os.getenv("TTS_PROVIDER", "auto").lower() == "kokoro":
+            from .kokoro_tts import generate_audio
+            return await asyncio.to_thread(generate_audio, text, output_path)
+
         word_offsets = []
         hume_generated = False
         eleven_audio_generated = False

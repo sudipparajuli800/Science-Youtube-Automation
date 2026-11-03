@@ -27,8 +27,8 @@ class SciencePipeline(BasePipeline):
         t_v = config.get('tts_voice', {})
         self.tts = TTSEngine(
             voice_map=t_v, 
-            rate=t_v.get('rate', "-25%"),
-            pitch=t_v.get('pitch', "-12Hz"),
+            rate=t_v.get('rate', "-5%"),
+            pitch=t_v.get('pitch', "+0Hz"),
             allow_elevenlabs=False
         )
         self.vgen = VideoShortsGenerator()
