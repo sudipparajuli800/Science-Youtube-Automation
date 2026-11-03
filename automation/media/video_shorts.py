@@ -446,6 +446,8 @@ class VideoShortsGenerator:
                     elif scene_type == "data_bars":
                         bar_data = scene.get("bar_data")
                         clip = renderer.render_data_bars(asset_path, narration, dur, bar_data)
+                    elif scene_type == "explainer_card":
+                        clip = ImageClip(asset_path).set_duration(dur)
                     elif scene_type == "image":
                         named_ent = scene.get("named_entity", "")
                         clip = renderer.render_image(asset_path, narration, dur, named_ent)
@@ -511,7 +513,7 @@ class VideoShortsGenerator:
                             if timing["start"] <= cs <= timing["end"]:
                                 active_type = scenes[s_idx].get("visual_type", "image")
                                 break
-                        if active_type in ("hook_question", "typewriter_text", "kinetic_stat"):
+                        if active_type in ("hook_question", "typewriter_text", "kinetic_stat", "explainer_card"):
                             continue
                         if i < len(pop_chunks) - 1 and pop_chunks[i + 1]:
                             cd = max(pop_chunks[i + 1][0]['start'] - cs, 0.1)

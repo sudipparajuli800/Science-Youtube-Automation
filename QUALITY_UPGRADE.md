@@ -91,3 +91,20 @@ Fallback scene search uses the topic instead of fragments of spoken narration.
 Validation: 11 offline tests cover provider fallback, key rotation, circuit breaking,
 explicit rejection, image conversion, and editorial checks. No live provider request
 was made, and no publishing workflow was triggered.
+
+## Quota-independent rendering fallback
+
+When all remote vision providers are unavailable, the asset orchestrator now creates
+local, labeled explanation cards from the existing scene narration. It does not
+accept unverified stock footage. Subsequent scenes skip remote downloads/checks for
+that job. Missing relevant stock also falls back to these cards. Both video formats
+render cards without duplicate caption overlays, zoom effects or fabricated imagery.
+Cards are a less visually rich recovery mode, not a substitute for verified footage.
+The fallback does not validate scientific claims in the script.
+
+Retired final models now advance immediately instead of consuming five retries.
+`GEMINI_MODEL` can override the default Flash alias; the obsolete 2.0/2.5 fallback
+list was replaced. Groq vision HTTP status/type is logged without credentials.
+Validation includes a simulated complete vision outage across multiple scenes and
+an actual local Shorts render with a card and silent test audio. Hosted writing,
+voice generation, provider account access, and uploading are not covered by that render.

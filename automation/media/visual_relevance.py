@@ -4,7 +4,7 @@ The video orchestrator uses strict mode; legacy callers retain permissive behavi
 import os
 import re
 
-_MODEL_CANDIDATES = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.0-flash']
+_MODEL_CANDIDATES = list(dict.fromkeys([os.getenv('GEMINI_MODEL', 'gemini-flash-latest'), 'gemini-3.8-flash']))
 
 
 class VerificationUnavailable(RuntimeError):
@@ -74,8 +74,10 @@ def _check_groq(img_bytes, prompt):
             verdict = _verdict(response.json()['choices'][0]['message']['content'])
             if verdict is not None:
                 return verdict
-        except Exception:
-            pass
+        except Exception as error:
+            # Status/type identify billing, model and request errors without leaking keys.
+            status = getattr(getattr(error, 'response', None), 'status_code', None)
+            print(f'[VisualRelevance] Groq vision failure: {type(error).__name__}, HTTP {status or "n/a"}.')
         _UNAVAILABLE_KEYS.add(('groq', key))
         print('[VisualRelevance] Groq vision key unavailable; trying next key.')
     return None

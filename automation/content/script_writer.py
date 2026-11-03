@@ -85,7 +85,7 @@ class ScriptWriter:
         # pinned dated ID like the old "gemini-2.0-flash") is what actually prevents this
         # from breaking again next time Google retires a specific version. The pinned IDs
         # after it are just a safety net in case the alias itself is ever unavailable.
-        self.model_candidates = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.0-flash']
+        self.model_candidates = list(dict.fromkeys([os.getenv('GEMINI_MODEL', 'gemini-flash-latest'), 'gemini-3.8-flash']))
         self.model_id = self.model_candidates[0]
         self.groq_api_keys = [
             os.getenv("GROQ_API_KEY"),
@@ -157,6 +157,10 @@ class ScriptWriter:
                         print(f"Gemini model '{model_id}' unavailable, trying '{self.model_candidates[model_idx]}'...")
                         continue  # doesn't consume retry budget — this model will never succeed
 
+                    if self._is_model_not_found(err_msg):
+                        print(f"Gemini model '{model_id}' unavailable; skipping this key.")
+                        break
+
                     if is_quota_error:
                         print(f"Gemini Key {client_idx+1} Quota Exceeded/429. Trying next key...")
                         break  # Break out of attempts loop for this key, move to next key
@@ -205,6 +209,10 @@ class ScriptWriter:
                             model_idx += 1
                             print(f"Groq model '{model_id}' unavailable, trying '{self.groq_model_candidates[model_idx]}'...")
                             continue
+
+                        if self._is_model_not_found(err_msg):
+                            print(f"Groq model '{model_id}' unavailable; skipping this key.")
+                            break
 
                         if is_quota_error:
                             print(f"Groq Key {client_idx+1} Quota Exceeded/429. Trying next key...")

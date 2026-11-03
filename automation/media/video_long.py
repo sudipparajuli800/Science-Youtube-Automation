@@ -271,6 +271,8 @@ class VideoLongGenerator:
                     elif vtype == "kinetic_stat" and apath and os.path.exists(apath):
                         sdata = scene.get("stat_data") or {"value": 0, "unit": "", "label": ""}
                         clip = renderer.render_kinetic_stat(apath, scene.get("narration", ""), clip_duration, sdata)
+                    elif vtype == "explainer_card" and apath:
+                        clip = ImageClip(apath).set_duration(clip_duration)
                     elif vtype == "image" and apath and os.path.exists(apath):
                         clip = renderer.render_image(apath, scene.get("narration", ""), clip_duration, named_entity=scene.get("named_entity"))
                     elif vtype == "ai_video" and apath and os.path.exists(apath):
@@ -417,7 +419,7 @@ class VideoLongGenerator:
                         if timing["start"] <= chunk_start <= timing["end"]:
                             active_type = self.scenes[s_idx].get("visual_type", "image")
                             break
-                    if active_type in ("hook_question", "typewriter_text", "kinetic_stat"):
+                    if active_type in ("hook_question", "typewriter_text", "kinetic_stat", "explainer_card"):
                         continue
 
                 if i < len(pop_chunks) - 1 and pop_chunks[i+1]:

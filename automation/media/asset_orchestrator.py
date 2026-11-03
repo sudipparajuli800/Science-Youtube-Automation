@@ -29,6 +29,7 @@ class AssetOrchestrator:
         self.hf_token = hf_token or os.getenv("HF_TOKEN", "")
         self.image_fetcher = ImageFetcher()
         self._used_assets = set()
+        self._verification_unavailable = False
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ class AssetOrchestrator:
         Process all scenes and return the full job manifest dict with all 6 visual types.
         """
         self._used_assets.clear()
+        self._verification_unavailable = False
         today = datetime.date.today().isoformat()
         plan_hash = hashlib.sha256(json.dumps(scenes, sort_keys=True).encode()).hexdigest()
 
@@ -109,6 +111,12 @@ class AssetOrchestrator:
                 "bar_data": scene.get("bar_data")
             }
 
+            if self._verification_unavailable:
+                self._use_explainer_card(scene_entry, topic, job_dir, aspect_ratio)
+                manifest["scenes"].append(scene_entry)
+                self._save_manifest(manifest)
+                continue
+
             # ── Route by visual_type ─────────────────────────────────────────
             if visual_type == "ai_video":
                 if ai_video_count >= MAX_AI_VIDEO_PER_JOB:
@@ -158,6 +166,11 @@ class AssetOrchestrator:
                     portrait=(aspect_ratio == "9:16"),
                 )
                 chosen_video = self._pick_relevant_asset(video_candidates, relevance_desc)
+                if self._verification_unavailable:
+                    self._use_explainer_card(scene_entry, topic, job_dir, aspect_ratio)
+                    manifest["scenes"].append(scene_entry)
+                    self._save_manifest(manifest)
+                    continue
                 if chosen_video:
                     asset_path = chosen_video
                     if aspect_ratio == "9:16":
@@ -186,7 +199,7 @@ class AssetOrchestrator:
                 import time
                 time.sleep(2.5)
             # Official stock APIs preserve a clear license trail; no web-image scraping.
-            paths = stock_media.fetch_real_photos(
+            paths = [] if self._verification_unavailable else stock_media.fetch_real_photos(
                 image_cue, MAX_RELEVANCE_CHECKS_PER_SCENE, job_dir,
                 f"job_{job_id}_scene{idx}", portrait=(aspect_ratio == "9:16"))
             chosen_image = self._pick_relevant_asset(paths, relevance_desc)
@@ -207,8 +220,8 @@ class AssetOrchestrator:
                 scene_entry["asset_type"] = "none"
                 scene_entry["asset_path"] = None
 
-            if visual_type in ("image", "ai_video") and not scene_entry["asset_path"]:
-                raise RuntimeError(f"Scene {idx} has no verified visual: {image_cue}. Supply a relevant asset before publishing.")
+            if not scene_entry["asset_path"]:
+                self._use_explainer_card(scene_entry, topic, job_dir, aspect_ratio)
             source_path = (scene_entry.get("asset_path") or "") + ".source.json"
             if os.path.isfile(source_path):
                 with open(source_path, encoding="utf-8") as credit:
@@ -284,10 +297,23 @@ class AssetOrchestrator:
                 digest = hashlib.sha256(asset.read()).hexdigest()
             if digest in self._used_assets:
                 continue
-            if visual_relevance.is_visually_relevant(path, description, strict=True):
+            try:
+                relevant = visual_relevance.is_visually_relevant(path, description, strict=True)
+            except visual_relevance.VerificationUnavailable:
+                self._verification_unavailable = True
+                print('[AssetOrchestrator] Remote vision unavailable: using labeled script-summary cards.')
+                return None
+            if relevant:
                 self._used_assets.add(digest)
                 return path
         return None
+
+    def _use_explainer_card(self, entry, topic, job_dir, aspect_ratio):
+        from .explainer_card import create_explainer_card
+        path = os.path.join(job_dir, f"scene_{entry['scene_idx']}_explainer.png")
+        entry.update(visual_type='explainer_card', asset_type='image',
+                     asset_path=create_explainer_card(entry, topic, path, aspect_ratio == '9:16'),
+                     source={'provider': 'local script summary', 'photographic_evidence': False})
 
     def _generate_relevant_ai_image(self, description: str, base_filename: str) -> str | None:
         """Last resort when no fetched photo/video passes the relevance check: generate
