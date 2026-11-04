@@ -74,3 +74,9 @@ automation/storage/*.png
 .idea/
 *.swp
 *.swo
+
+# Generated media caches (task ledger remains in state JSON)
+automation/storage/generated_clips/
+automation/storage/mpl-cache/
+automation/media/visual_bank/*.mp4
+automation/storage/visual_bank/

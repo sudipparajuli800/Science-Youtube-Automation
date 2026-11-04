@@ -2,6 +2,8 @@
 
 A fully automated international news publishing system that detects breaking news for YouTube Shorts and produces daily summaries for long-form videos.
 
+For hosted Wan video generation or a free-cloud-GPU visual bank, see [Video generation setup](VIDEO_GENERATION_SETUP.md).
+
 ## Features
 - **Breaking News Detection**: Scans RSS feeds, Telegram, and DDG for urgent updates.
 - **AI Scripting**: Uses Google Gemini to rewrite news into catchy video scripts.

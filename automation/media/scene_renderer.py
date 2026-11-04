@@ -629,7 +629,7 @@ class SceneRenderer:
         """
         Loads, loops, and cover-crops an AI video clip without stretching.
         """
-        vc = VideoFileClip(video_path)
+        vc = VideoFileClip(video_path).without_audio()
         if vc.duration < duration:
             from moviepy.video.fx.all import loop
             vc = loop(vc, duration=duration)
@@ -638,7 +638,15 @@ class SceneRenderer:
 
         def cover_grade(frame):
             pil_frm = Image.fromarray(frame).convert("RGB")
-            return np.array(apply_cinematic_grade(self._cover_image(pil_frm)))
+            frame = apply_cinematic_grade(self._cover_image(pil_frm)).convert('RGBA')
+            draw = ImageDraw.Draw(frame)
+            font = ImageFont.truetype(get_font_path('regular'), 28)
+            text = 'AI-generated illustration'
+            box = draw.textbbox((0, 0), text, font=font)
+            x, y = 48, 100
+            draw.rounded_rectangle((x-14, y-10, x+box[2]+14, y+box[3]+10), radius=8, fill=(8, 13, 24, 220))
+            draw.text((x, y), text, font=font, fill=(225, 236, 239, 255))
+            return np.array(frame.convert('RGB'))
 
         return vc.fl_image(cover_grade).set_fps(30)
 

@@ -36,6 +36,7 @@ class SciencePipeline(BasePipeline):
         self.music_volume = config.get('branding', {}).get('music_volume', 0.04)
         self.nasa_fetcher = NASAFetcher()
         self.uploader = None # Initialized in run()
+        self._video_asset_types = None
 
     def _get_punchy_title(self, hook_phrase: str, script: str, topic: str) -> str:
         """Generates a punchy YouTube title from the hook phrase and script's opening question."""
@@ -119,6 +120,7 @@ class SciencePipeline(BasePipeline):
             from ..media.asset_orchestrator import AssetOrchestrator
             orchestrator = AssetOrchestrator(hf_token=os.getenv("HF_TOKEN", ""))
             asset_manifest = orchestrator.fetch_all(visual_scenes, prompt_topic, aspect_ratio="9:16")
+            self._video_asset_types = [s.get("asset_type") for s in asset_manifest["scenes"]]
             print(f"Asset manifest ready: job_id={asset_manifest.get('job_id')}, "
                   f"{len(asset_manifest.get('scenes', []))} scenes.")
         else:
@@ -273,6 +275,7 @@ class SciencePipeline(BasePipeline):
             from ..media.asset_orchestrator import AssetOrchestrator
             orchestrator = AssetOrchestrator(hf_token=os.getenv("HF_TOKEN", ""))
             asset_manifest = orchestrator.fetch_all(scenes_data, topic)
+            self._video_asset_types = [s.get("asset_type") for s in asset_manifest["scenes"]]
             print(f"Asset manifest ready: job_id={asset_manifest.get('job_id')}, "
                   f"{len(asset_manifest.get('scenes', []))} scenes.")
         else:
@@ -307,10 +310,8 @@ class SciencePipeline(BasePipeline):
             burn_captions=True,
         )
 
-        # 8. Cleanup temp job assets after successful render
-        if asset_manifest and os.path.exists(video_path):
-            from ..media.asset_orchestrator import AssetOrchestrator
-            AssetOrchestrator().cleanup(asset_manifest)
+        # Retain the job manifest/assets for thumbnail extraction and workflow review.
+        # Generated provider clips live in their separate reusable cache.
 
         # 9. Generate SRT captions
         srt_path = "automation/storage/science_long.srt"
@@ -503,6 +504,11 @@ class SciencePipeline(BasePipeline):
             print(f"TEST MODE: Skipping upload for {title}")
             print(f"--- Science Pipeline Completed ---")
             return "test_video_id"
+
+        if self._video_asset_types is not None and not any(
+                kind in ('video', 'ai_video') for kind in self._video_asset_types):
+            raise RuntimeError('Visual quality hold: no moving footage in this render. '
+                               'Configure video generation or add reviewed visual-bank clips before publishing.')
 
         print("Initializing YouTube service...")
         youtube_service = YouTubeAuth.get_service(os.getenv("YOUTUBE_TOKEN_BASE64"))

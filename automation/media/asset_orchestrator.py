@@ -5,12 +5,11 @@ import datetime
 import hashlib
 from typing import List, Dict
 
-from .hf_video_generator import generate_hf_video
+from .video_generation import VideoGenerator
 from .image_fetcher import ImageFetcher
 from . import stock_media
 from . import visual_relevance
 
-MAX_AI_VIDEO_PER_JOB = 3     # Per-video cap to protect HF monthly quota
 MAX_STOCK_VIDEO_PER_JOB = 40  # Per-video cap to keep download/render time bounded
 RELEVANCE_CHECK_ENABLED = os.getenv("DISABLE_VISUAL_RELEVANCE_CHECK", "").strip().lower() not in ("1", "true", "yes")
 MAX_RELEVANCE_CHECKS_PER_SCENE = 3  # bound latency/Gemini-quota usage per scene
@@ -28,6 +27,7 @@ class AssetOrchestrator:
     def __init__(self, hf_token: str = None):
         self.hf_token = hf_token or os.getenv("HF_TOKEN", "")
         self.image_fetcher = ImageFetcher()
+        self.video_generator = VideoGenerator()
         self._used_assets = set()
         self._verification_unavailable = False
 
@@ -40,7 +40,7 @@ class AssetOrchestrator:
         self._used_assets.clear()
         self._verification_unavailable = False
         today = datetime.date.today().isoformat()
-        plan_hash = hashlib.sha256(json.dumps(scenes, sort_keys=True).encode()).hexdigest()
+        plan_hash = hashlib.sha256(json.dumps([scenes, self.video_generator.provider, self.video_generator.model, self.video_generator.limit], sort_keys=True).encode()).hexdigest()
 
         # ── Resume support: check for existing manifest ────────────────────────
         existing = self._find_existing_manifest(topic, today)
@@ -117,35 +117,15 @@ class AssetOrchestrator:
                 self._save_manifest(manifest)
                 continue
 
-            # ── Route by visual_type ─────────────────────────────────────────
-            if visual_type == "ai_video":
-                if ai_video_count >= MAX_AI_VIDEO_PER_JOB:
-                    print(f"[AssetOrchestrator] Scene {idx}: ai_video budget cap reached "
-                          f"({MAX_AI_VIDEO_PER_JOB}/job). Downgrading to image.")
-                    visual_type = "image"  # fall through to image fetch below
-                else:
-                    print(f"[AssetOrchestrator] Scene {idx}: ai_video -> HF CogVideoX-2B "
-                          f"({ai_video_count+1}/{MAX_AI_VIDEO_PER_JOB})")
-                    result = generate_hf_video(
-                        prompt=ai_video_prompt or image_cue,
-                        output_dir=job_dir,
-                        scene_idx=idx,
-                        hf_token=self.hf_token,
-                    )
-                    
-                    if result["asset_type"] == "ai_video":
-                        asset_path = result["asset_path"]
-                        if aspect_ratio == "9:16":
-                            asset_path = self._crop_video_to_portrait(asset_path)
-                            
-                        scene_entry["asset_type"] = "ai_video"
-                        scene_entry["asset_path"] = asset_path
-                        ai_video_count += 1
-                        manifest["scenes"].append(scene_entry)
-                        self._save_manifest(manifest)
-                        continue
-                    else:
-                        visual_type = "image"  # If video failed, treat as image
+            # Explicit planned illustrations use hosted providers; never the retired HF endpoint.
+            if visual_type == 'ai_video':
+                if self._use_generated_video(scene_entry, topic, aspect_ratio):
+                    ai_video_count += 1
+                    manifest["scenes"].append(scene_entry)
+                    self._save_manifest(manifest)
+                    continue
+                visual_type = 'image'
+                scene_entry['visual_type'] = 'image'
 
             # Description used for the AI relevance check and, if needed, the AI-image
             # fallback below — the actual narration is far more specific than the
@@ -229,6 +209,7 @@ class AssetOrchestrator:
             manifest["scenes"].append(scene_entry)
             self._save_manifest(manifest)
 
+        ai_video_count = sum(s["asset_type"] == "ai_video" for s in manifest["scenes"])
         print(f"[AssetOrchestrator] Job {job_id} complete. "
               f"{ai_video_count} AI video clip(s), "
               f"{stock_video_count} real stock-video clip(s), "
@@ -308,7 +289,17 @@ class AssetOrchestrator:
                 return path
         return None
 
+    def _use_generated_video(self, entry, topic, aspect_ratio):
+        result = self.video_generator.generate(entry, topic, aspect_ratio)
+        if not result:
+            return False
+        entry.update(visual_type='ai_video', asset_type='ai_video', **result)
+        print(f"[AssetOrchestrator] Scene {entry['scene_idx']}: hosted AI illustration ready.")
+        return True
+
     def _use_explainer_card(self, entry, topic, job_dir, aspect_ratio):
+        if entry.get('visual_type') in ('image', 'ai_video') and self._use_generated_video(entry, topic, aspect_ratio):
+            return
         from .explainer_card import create_explainer_card
         path = os.path.join(job_dir, f"scene_{entry['scene_idx']}_explainer.png")
         entry.update(visual_type='explainer_card', asset_type='image',

@@ -344,8 +344,9 @@ Return only speech text, without markup, directions, headings, or image cues.
         }
         prompt = f"""Plan footage for a science video about {topic}.
 Return JSON only: an object with scenes and thumbnail_data.
-Each scene needs narration (verbatim), visual_type (image, kinetic_stat, data_bars),
-image_cue (concrete subject and action), named_entity (optional short label),
+Each scene needs narration (verbatim), visual_type (image, ai_video, kinetic_stat, data_bars),
+image_cue (concrete subject and action), ai_video_prompt (subject/action/camera for illustrations),
+named_entity (optional short label),
 stat_data (null or value/unit/label), bar_data (null or label/value objects).
 Use graphics only when justified by spoken numbers. Most scenes should be image.
 thumbnail_data needs hook_phrase (up to 4 accurate words), supporting_fact,

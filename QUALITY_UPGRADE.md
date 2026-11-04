@@ -1,5 +1,9 @@
 # Science video quality upgrade
 
+Hosted Wan generation and the cloud-GPU visual bank are now supported. See
+[Video generation setup](VIDEO_GENERATION_SETUP.md) for activation, credit limits,
+and the current safeguard against publishing a video with no moving footage.
+
 The default direction is a measured, footage-led science explainer. Show the thing
 being explained; keep text for captions, labels and useful data. Avoid decorative
 space imagery, artificial instrument overlays, flashing transitions and constant whooshes.

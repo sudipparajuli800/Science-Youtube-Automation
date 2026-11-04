@@ -51,6 +51,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: science-automation-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   automation:
     runs-on: ubuntu-latest
@@ -68,6 +72,19 @@ jobs:
           sudo apt-get install -y ffmpeg libsm6 libxext6
           pip install feedparser edge-tts "moviepy<2.0.0" requests beautifulsoup4 google-genai telethon python-dotenv duckduckgo-search google-api-python-client google-auth-oauthlib groq "Pillow" PyYAML elevenlabs
           
+      - name: Restore generated video cache
+        uses: actions/cache@v4
+        with:
+          path: automation/storage/generated_clips
+          key: generated-video-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: generated-video-${{ runner.os }}-
+
+      - name: Import optional reviewed visual bank
+        continue-on-error: true
+        env:
+          VISUAL_BANK_URL: ${{ vars.VISUAL_BANK_URL }}
+        run: python -m automation.media.visual_bank
+
       # Captions, thumbnails and explanation cards use Pillow. No ImageMagick
       # policy edit is needed; runner-specific policy paths must not block jobs.
       - name: Create Storage Dirs
@@ -95,6 +112,11 @@ jobs:
           HUME_VOICE_ID: ${{ secrets.HUME_VOICE_ID }}
           HUME_VOICE_ID_2: ${{ secrets.HUME_VOICE_ID_2 }}
           HF_TOKEN: ${{ secrets.HUGGINGFACE_API_KEY }}
+          KIE_API_KEY: ${{ secrets.KIE_API_KEY }}
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+          VIDEO_GEN_PROVIDER: ${{ vars.VIDEO_GEN_PROVIDER || 'auto' }}
+          VIDEO_GEN_MAX_CLIPS: ${{ vars.VIDEO_GEN_MAX_CLIPS || '1' }}
+          VIDEO_GEN_DAILY_LIMIT: ${{ vars.VIDEO_GEN_DAILY_LIMIT || '2' }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
@@ -125,6 +147,11 @@ jobs:
           HUME_VOICE_ID: ${{ secrets.HUME_VOICE_ID }}
           HUME_VOICE_ID_2: ${{ secrets.HUME_VOICE_ID_2 }}
           HF_TOKEN: ${{ secrets.HUGGINGFACE_API_KEY }}
+          KIE_API_KEY: ${{ secrets.KIE_API_KEY }}
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+          VIDEO_GEN_PROVIDER: ${{ vars.VIDEO_GEN_PROVIDER || 'auto' }}
+          VIDEO_GEN_MAX_CLIPS: ${{ vars.VIDEO_GEN_MAX_CLIPS || '1' }}
+          VIDEO_GEN_DAILY_LIMIT: ${{ vars.VIDEO_GEN_DAILY_LIMIT || '2' }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
@@ -168,6 +195,16 @@ jobs:
           YOUTUBE_TOKEN_BASE64: ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
         run: |
           python automation/main.py --mode comments
+
+      - name: Upload visual production report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-production-${{ github.run_id }}
+          path: |
+            automation/storage/temp_videos/**/manifest.json
+            automation/storage/video_generation_jobs.json
+          if-no-files-found: ignore
 
       - name: Commit State Changes
         if: always()
