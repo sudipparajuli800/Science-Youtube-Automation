@@ -65,13 +65,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg imagemagick libsm6 libxext6
+          sudo apt-get install -y ffmpeg libsm6 libxext6
           pip install feedparser edge-tts "moviepy<2.0.0" requests beautifulsoup4 google-genai telethon python-dotenv duckduckgo-search google-api-python-client google-auth-oauthlib groq "Pillow" PyYAML elevenlabs
           
-      - name: Configure ImageMagick
-        run: |
-          sudo sed -i 's/policy domain="path" rights="none" pattern="@\*"/policy domain="path" rights="read|write" pattern="@*"/g' /etc/ImageMagick-6/policy.xml
-
+      # Captions, thumbnails and explanation cards use Pillow. No ImageMagick
+      # policy edit is needed; runner-specific policy paths must not block jobs.
       - name: Create Storage Dirs
         run: mkdir -p automation/storage automation/logs
 

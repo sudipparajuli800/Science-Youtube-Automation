@@ -3,7 +3,7 @@ import glob
 import random
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from moviepy.editor import TextClip, ColorClip, CompositeVideoClip, AudioFileClip, ImageClip, VideoFileClip
+from moviepy.editor import ColorClip, CompositeVideoClip, AudioFileClip, ImageClip, VideoFileClip
 
 from .scene_renderer import SceneRenderer
 from .timing_utils import calculate_adjusted_durations, match_scenes_to_timestamps

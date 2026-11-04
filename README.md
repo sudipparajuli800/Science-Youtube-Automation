@@ -28,9 +28,7 @@ international_news_automation/
 ### 1. Prerequisites
 - **Python 3.9+**
 - **FFmpeg**: [Download here](https://ffmpeg.org/download.html) and add to PATH.
-- **ImageMagick**: Required for subtitles.
-  - **Windows**: Install [ImageMagick](https://imagemagick.org/script/download.php#windows). During installation, check "Install legacy utilities (e.g. convert)".
-  - **Important**: You may need to tell MoviePy where ImageMagick is. In your Python environment, you can set the `IMAGEMAGICK_BINARY` environment variable to the path of `magick.exe`.
+- **Pillow** renders captions, thumbnails and explanation cards. ImageMagick and policy-file edits are not required.
 
 ### 2. API Credentials
 - **Gemini AI**: Add `GEMINI_API_KEY` to your `.env` file. The system is configured to use `gemini-2.0-flash`.

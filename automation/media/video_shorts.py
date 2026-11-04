@@ -1,4 +1,4 @@
-from moviepy.editor import TextClip, ColorClip, CompositeVideoClip, AudioFileClip, ImageClip, VideoFileClip, afx, vfx
+from moviepy.editor import ColorClip, CompositeVideoClip, AudioFileClip, ImageClip, VideoFileClip, afx, vfx
 import os
 import sys
 import glob
