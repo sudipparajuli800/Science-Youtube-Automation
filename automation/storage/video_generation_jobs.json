@@ -7,5 +7,10 @@
       "taskId": "c862568d275b168d272c5802b293cefc",
       "recordId": "c862568d275b168d272c5802b293cefc"
     }
+  },
+  "64be8528a17595af49627867fe6e1c8a6d20471b08be891833b4e5ded4ffa310": {
+    "date": "2026-11-05",
+    "state": "failed",
+    "provider": "kie"
   }
 }
