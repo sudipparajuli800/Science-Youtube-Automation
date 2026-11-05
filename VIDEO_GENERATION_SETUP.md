@@ -96,3 +96,18 @@ Validation covers provider payloads, successful retrieval, cached reuse, quota a
 failure limits, pending-task resumption, API credential origin checks, reviewed-bank
 matching, and existing editorial/vision fallbacks. Live generation needs your account
 key and credits; no hosted model was called during implementation.
+
+## CPU stock matching and early holds
+
+The workflow now installs CPU PyTorch and Transformers for a local CLIP fallback
+when both remote vision providers are unavailable. Its model is downloaded once
+and cached; it requires no GPU or inference API key. Matching is a conservative
+similarity heuristic, not a scientific verifier. A genuine remote NO is never
+overridden. Model download or dependency failure does not approve an asset.
+
+If the scene plan still has zero video clips, production stops before narration,
+rendering or thumbnail generation. The Actions summary says "Video held: no moving
+footage" and the `visual_quality_report.json` artifact lists counts and whether
+Kie/fal credentials were configured, without exposing their values. This is a held
+production run, not a successful publication. Test mode still permits previews.
+The published-video safeguard remains in place.

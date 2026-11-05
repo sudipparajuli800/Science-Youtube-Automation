@@ -16,6 +16,7 @@ except ImportError:
 sys.path.append(os.getcwd())
 
 from automation.config_loader import ConfigLoader
+from automation.media.visual_quality import VisualQualityHold, report_hold
 from automation.pipelines.science_pipeline import SciencePipeline
 from automation.youtube.auth import YouTubeAuth
 from automation.youtube.comment_handler import CommentHandler
@@ -71,7 +72,10 @@ async def main():
 
     # Run Pipeline directly
     pipeline = SciencePipeline(config)
-    await pipeline.run(mode=args.mode, is_test=args.test)
+    try:
+        await pipeline.run(mode=args.mode, is_test=args.test)
+    except VisualQualityHold as hold:
+        report_hold(str(hold))
 
 if __name__ == "__main__":
     asyncio.run(main())

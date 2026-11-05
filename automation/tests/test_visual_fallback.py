@@ -11,12 +11,15 @@ from automation.media import visual_relevance as vr
 
 class VisionFallbackTests(unittest.TestCase):
     def setUp(self):
+        self.local_setting = patch.dict(os.environ, {"LOCAL_VISUAL_RELEVANCE": "false"})
+        self.local_setting.start()
         vr._UNAVAILABLE_KEYS.clear()
         self.temp = tempfile.TemporaryDirectory()
         self.path = str(Path(self.temp.name) / 'asset.png')
         Image.new('RGB', (20, 20)).save(self.path)
 
     def tearDown(self):
+        self.local_setting.stop()
         self.temp.cleanup()
         vr._UNAVAILABLE_KEYS.clear()
 
@@ -37,6 +40,13 @@ class VisionFallbackTests(unittest.TestCase):
              patch.object(vr, '_check_groq', return_value=None):
             with self.assertRaises(vr.VerificationUnavailable):
                 vr.is_visually_relevant(self.path, 'dinosaur eggs', strict=True)
+
+    def test_cpu_matcher_recovers_after_both_hosted_providers_fail(self):
+        with patch.object(vr, '_check_gemini', return_value=None), \
+             patch.object(vr, '_check_groq', return_value=None), \
+             patch('automation.media.local_relevance.check_local', return_value=True) as local:
+            self.assertTrue(vr.is_visually_relevant(self.path, 'dinosaur eggs', strict=True))
+            self.assertEqual(local.call_args.args[1], 'dinosaur eggs')
 
     def test_key_rotation_and_circuit_breaker(self):
         failed = Mock()

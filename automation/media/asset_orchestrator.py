@@ -40,7 +40,7 @@ class AssetOrchestrator:
         self._used_assets.clear()
         self._verification_unavailable = False
         today = datetime.date.today().isoformat()
-        plan_hash = hashlib.sha256(json.dumps([scenes, self.video_generator.provider, self.video_generator.model, self.video_generator.limit], sort_keys=True).encode()).hexdigest()
+        plan_hash = hashlib.sha256(json.dumps([scenes, self.video_generator.provider, self.video_generator.model, self.video_generator.limit, os.getenv("LOCAL_VISUAL_RELEVANCE", ""), "cpu-matching-v1"], sort_keys=True).encode()).hexdigest()
 
         # ── Resume support: check for existing manifest ────────────────────────
         existing = self._find_existing_manifest(topic, today)

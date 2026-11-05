@@ -152,6 +152,10 @@ def is_visually_relevant(asset_path: str, description: str, strict: bool = False
         verdict = check(img_bytes, prompt)
         if verdict is not None:
             return verdict
+    from .local_relevance import check_local
+    verdict = check_local(img_bytes, clean_desc)
+    if verdict is not None:
+        return verdict
     if strict:
         raise VerificationUnavailable(
             "Visual verification unavailable on all Gemini and Groq keys. "

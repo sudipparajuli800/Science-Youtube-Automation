@@ -58,6 +58,8 @@ concurrency:
 jobs:
   automation:
     runs-on: ubuntu-latest
+    env:
+      LOCAL_VISUAL_RELEVANCE: "true"
     steps:
       - uses: actions/checkout@v3
       
@@ -72,6 +74,19 @@ jobs:
           sudo apt-get install -y ffmpeg libsm6 libxext6
           pip install feedparser edge-tts "moviepy<2.0.0" requests beautifulsoup4 google-genai telethon python-dotenv duckduckgo-search google-api-python-client google-auth-oauthlib groq "Pillow" PyYAML elevenlabs
           
+      - name: Install CPU visual matching
+        if: github.event.inputs.pipeline != 'comments' && github.event.schedule != '0 3 * * *'
+        continue-on-error: true
+        run: |
+          pip install 'torch>=2.6,<3' --index-url https://download.pytorch.org/whl/cpu
+          pip install 'transformers>=4.45,<5'
+
+      - name: Cache CPU matching model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub/models--openai--clip-vit-base-patch32
+          key: cpu-clip-vit-base-patch32-v1
+
       - name: Restore generated video cache
         uses: actions/cache@v4
         with:
@@ -204,6 +219,7 @@ jobs:
           path: |
             automation/storage/temp_videos/**/manifest.json
             automation/storage/video_generation_jobs.json
+            automation/storage/visual_quality_report.json
           if-no-files-found: ignore
 
       - name: Commit State Changes

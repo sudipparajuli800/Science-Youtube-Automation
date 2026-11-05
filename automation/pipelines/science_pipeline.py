@@ -13,6 +13,7 @@ from ..media.nasa_fetcher import NASAFetcher
 from ..youtube.uploader import YouTubeUploader
 from ..youtube.auth import YouTubeAuth
 from ..media.srt_generator import generate_srt
+from ..media.visual_quality import check_visual_quality
 
 class SciencePipeline(BasePipeline):
     def __init__(self, config):
@@ -121,6 +122,7 @@ class SciencePipeline(BasePipeline):
             orchestrator = AssetOrchestrator(hf_token=os.getenv("HF_TOKEN", ""))
             asset_manifest = orchestrator.fetch_all(visual_scenes, prompt_topic, aspect_ratio="9:16")
             self._video_asset_types = [s.get("asset_type") for s in asset_manifest["scenes"]]
+            check_visual_quality(asset_manifest, is_test=is_test)
             print(f"Asset manifest ready: job_id={asset_manifest.get('job_id')}, "
                   f"{len(asset_manifest.get('scenes', []))} scenes.")
         else:
@@ -276,6 +278,7 @@ class SciencePipeline(BasePipeline):
             orchestrator = AssetOrchestrator(hf_token=os.getenv("HF_TOKEN", ""))
             asset_manifest = orchestrator.fetch_all(scenes_data, topic)
             self._video_asset_types = [s.get("asset_type") for s in asset_manifest["scenes"]]
+            check_visual_quality(asset_manifest, is_test=is_test)
             print(f"Asset manifest ready: job_id={asset_manifest.get('job_id')}, "
                   f"{len(asset_manifest.get('scenes', []))} scenes.")
         else:

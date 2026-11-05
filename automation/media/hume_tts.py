@@ -120,8 +120,7 @@ class HumeTTS:
 
         # Try each key in sequence
         for attempt, api_key in enumerate(self.api_keys, start=1):
-            key_preview = f"{api_key[:6]}...{api_key[-4:]}"
-            print(f"HumeTTS: Attempting key {attempt}/{len(self.api_keys)} ({key_preview}) ...")
+            print(f"HumeTTS: Attempting key {attempt}/{len(self.api_keys)} ...")
 
             headers = {
                 "X-Hume-Api-Key": api_key,
