@@ -1,0 +1,9 @@
+{
+  "status": "ready",
+  "scenes": 8,
+  "moving_scenes": 2,
+  "cards": 5,
+  "kie_key_configured": true,
+  "fal_key_configured": true,
+  "local_relevance_enabled": true
+}
