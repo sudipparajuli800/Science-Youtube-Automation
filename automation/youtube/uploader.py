@@ -1,5 +1,6 @@
 from googleapiclient.http import MediaFileUpload
 from .auth import YouTubeAuth
+from ..content.public_text import plain_public_text
 
 class YouTubeUploader:
     def __init__(self, youtube_service=None):
@@ -12,6 +13,10 @@ class YouTubeUploader:
         if not self.youtube:
             print("YouTube service not initialized.")
             return None
+
+        title = plain_public_text(title)
+        description = plain_public_text(description)
+        tags = [plain_public_text(tag) for tag in (tags or [])]
 
         # Sanitize description
         if description:

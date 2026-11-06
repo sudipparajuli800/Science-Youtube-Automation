@@ -262,7 +262,13 @@ class VideoLongGenerator:
                 print(f"[VideoLong] Scene {i} visual timing: start={clip_start:.3f}s, dur={clip_duration:.3f}s, type='{vtype}'")
                 
                 try:
-                    if vtype == "typewriter_text" and apath and os.path.exists(apath):
+                    if vtype == 'animation':
+                        from .motion_graphics import render_animation
+                        motion_path = render_animation(scene['animation'], clip_duration, *self.size, apath,
+                                                       word_offsets=word_offsets, scene_start=start_t)
+                        scene['rendered_asset_path'] = motion_path
+                        clip = VideoFileClip(motion_path).without_audio().set_duration(clip_duration)
+                    elif vtype == "typewriter_text" and apath and os.path.exists(apath):
                         words = scene.get("typewriter_words")
                         clip = renderer.render_typewriter(
                             apath, scene.get("narration", ""), clip_duration,

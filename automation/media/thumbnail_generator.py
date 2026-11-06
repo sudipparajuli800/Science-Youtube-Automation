@@ -34,7 +34,7 @@ class ThumbnailGenerator:
                 try:
                     clip = mp.VideoFileClip(first_asset_path)
                     bg_file = os.path.join(self.output_dir, "temp_thumb_bg.jpg")
-                    clip.save_frame(bg_file, t=0.5)
+                    clip.save_frame(bg_file, t=min(1.5, max(0.0, clip.duration / 2)))
                     clip.close()
                 except Exception as e:
                     print(f"[Thumbnail] Error extracting frame: {e}")
@@ -158,7 +158,7 @@ class ThumbnailGenerator:
                 try:
                     clip = mp.VideoFileClip(first_asset_path)
                     bg_file = os.path.join(self.output_dir, "temp_thumb_bg.jpg")
-                    clip.save_frame(bg_file, t=0.5)
+                    clip.save_frame(bg_file, t=min(1.5, max(0.0, clip.duration / 2)))
                     clip.close()
                 except Exception as e:
                     print(f"[Thumbnail] Error extracting frame: {e}")

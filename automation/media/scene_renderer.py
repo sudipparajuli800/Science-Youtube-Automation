@@ -1106,11 +1106,7 @@ class SceneRenderer:
         bg_graded = apply_cinematic_grade(self._cover_image(bg_img))
 
         if not bar_data or not isinstance(bar_data, list):
-            bar_data = [
-                {"label": "Value A", "value": 30},
-                {"label": "Value B", "value": 75},
-                {"label": "Value C", "value": 50},
-            ]
+            raise ValueError("Chart data is required; refusing to invent comparison values.")
 
         values = [float(b.get("value", 0)) for b in bar_data]
         max_val = max(values) if max(values) > 0 else 1.0

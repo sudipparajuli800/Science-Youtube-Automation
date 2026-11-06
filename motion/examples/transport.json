@@ -1,0 +1,28 @@
+{
+  "spec": {
+    "template": "transport",
+    "title": "Dust delivers nutrients",
+    "nodes": [
+      {
+        "label": "Saharan dust",
+        "icon": "particle"
+      },
+      {
+        "label": "Atlantic",
+        "icon": "ocean"
+      },
+      {
+        "label": "Amazon",
+        "icon": "leaf"
+      }
+    ]
+  },
+  "frames": 240,
+  "width": 1080,
+  "height": 1920,
+  "cues": [
+    0,
+    72,
+    144
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "spec": {
+    "template": "comparison",
+    "title": "Two planetary neighbors",
+    "nodes": [
+      {
+        "label": "Earth",
+        "icon": "planet"
+      },
+      {
+        "label": "Mars",
+        "icon": "planet"
+      }
+    ]
+  },
+  "frames": 180,
+  "width": 1080,
+  "height": 1920
+}

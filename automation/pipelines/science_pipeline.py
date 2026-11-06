@@ -5,6 +5,7 @@ import random
 from .base_pipeline import BasePipeline
 from ..content.science_topic_generator import ScienceTopicGenerator
 from ..content.script_writer import ScriptWriter
+from ..content.public_text import plain_public_text, overlay_headline
 from ..media.image_fetcher import ImageFetcher
 from ..media.video_fetcher import VideoFetcher
 from ..media.tts import TTSEngine
@@ -181,7 +182,7 @@ class SciencePipeline(BasePipeline):
             
             first_asset_path = None
             if asset_manifest and asset_manifest.get('scenes'):
-                first_asset_path = asset_manifest['scenes'][0].get('asset_path')
+                first_asset_path = (asset_manifest['scenes'][0].get('rendered_asset_path') or asset_manifest['scenes'][0].get('asset_path'))
                 
             thumb_path = thumb_gen.generate_thumbnail(thumb_info, first_asset_path=first_asset_path)
             print(f"Portrait thumbnail generated: {thumb_path}")
@@ -328,7 +329,7 @@ class SciencePipeline(BasePipeline):
         
         first_asset_path = None
         if asset_manifest and asset_manifest.get('scenes'):
-            first_asset_path = asset_manifest['scenes'][0].get('asset_path')
+            first_asset_path = (asset_manifest['scenes'][0].get('rendered_asset_path') or asset_manifest['scenes'][0].get('asset_path'))
             
         thumb_path = thumb_gen.generate_thumbnail(thumb_info, first_asset_path=first_asset_path)
 
@@ -421,7 +422,7 @@ class SciencePipeline(BasePipeline):
         """Generates and posts one text+photo update to Facebook/Instagram: a science
         discovery, real breaking news, a myth-bust, or a fun fact (rotating daily)."""
         from ..content.news_fetcher import fetch_recent_headlines
-        from ..media.watermark import add_watermark
+        from ..media.social_cover import create_social_cover
         from ..media.visual_relevance import is_visually_relevant
 
         post_type = self._next_social_post_type()
@@ -441,7 +442,7 @@ class SciencePipeline(BasePipeline):
         content = self.script_writer.generate_social_post(
             post_type, headlines=headlines, recent_history=recent_history
         )
-        caption = content.get("caption", "")
+        caption = plain_public_text(content.get("caption", ""))
         if not caption:
             print("Social post generation failed on all providers — skipping this run without posting.")
             return
@@ -471,7 +472,8 @@ class SciencePipeline(BasePipeline):
             print("No image could be fetched or generated for this post — skipping.")
             return
 
-        watermarked_path = add_watermark(chosen_image, "@dailydeepspace")
+        headline = overlay_headline(content.get("overlay_headline"), topic_label, caption)
+        watermarked_path = create_social_cover(chosen_image, headline)
 
         if is_test:
             print(f"TEST MODE: Skipping Meta post. Image: {watermarked_path}")
@@ -509,8 +511,8 @@ class SciencePipeline(BasePipeline):
             return "test_video_id"
 
         if self._video_asset_types is not None and not any(
-                kind in ('video', 'ai_video') for kind in self._video_asset_types):
-            raise RuntimeError('Visual quality hold: no moving footage in this render. '
+                kind in ('video', 'ai_video', 'animation') for kind in self._video_asset_types):
+            raise RuntimeError('Visual quality hold: no footage or explanatory animation in this render. '
                                'Configure video generation or add reviewed visual-bank clips before publishing.')
 
         print("Initializing YouTube service...")

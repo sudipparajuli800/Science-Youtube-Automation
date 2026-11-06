@@ -60,6 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       LOCAL_VISUAL_RELEVANCE: "true"
+      ANIMATION_ENABLED: ${{ vars.ANIMATION_ENABLED || 'true' }}
     steps:
       - uses: actions/checkout@v3
       
@@ -74,6 +75,21 @@ jobs:
           sudo apt-get install -y ffmpeg libsm6 libxext6
           pip install feedparser edge-tts "moviepy<2.0.0" requests beautifulsoup4 google-genai telethon python-dotenv duckduckgo-search google-api-python-client google-auth-oauthlib groq "Pillow" PyYAML elevenlabs
           
+      - name: Set up animation runtime
+        if: vars.ANIMATION_ENABLED != 'false' && (github.event.schedule == '15 1,12 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.pipeline == 'science' || github.event.inputs.pipeline == 'science_long')))
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: motion/package-lock.json
+
+      - name: Prepare Remotion animations
+        if: vars.ANIMATION_ENABLED != 'false' && (github.event.schedule == '15 1,12 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.pipeline == 'science' || github.event.inputs.pipeline == 'science_long')))
+        continue-on-error: true
+        run: |
+          npm ci --prefix motion --no-audit --no-fund
+          node motion/ensure-browser.mjs
+
       - name: Install CPU visual matching
         if: github.event.inputs.pipeline != 'comments' && github.event.schedule != '0 3 * * *'
         continue-on-error: true
@@ -90,7 +106,9 @@ jobs:
       - name: Restore generated video cache
         uses: actions/cache@v4
         with:
-          path: automation/storage/generated_clips
+          path: |
+            automation/storage/generated_clips
+            automation/storage/motion_cache
           key: generated-video-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: generated-video-${{ runner.os }}-
 

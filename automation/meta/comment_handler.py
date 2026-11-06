@@ -1,3 +1,4 @@
+from ..content.public_text import plain_public_text
 import os
 import time
 import json
@@ -233,7 +234,7 @@ class MetaCommentHandler:
         try:
             url = f"https://graph.facebook.com/{self.api_version}/{comment_id}/comments"
             payload = {
-                "message": reply_text,
+                "message": plain_public_text(reply_text),
                 "access_token": self.access_token
             }
             res = requests.post(url, data=payload)
@@ -316,7 +317,7 @@ class MetaCommentHandler:
         try:
             url = f"https://graph.facebook.com/{self.api_version}/{comment_id}/replies"
             payload = {
-                "message": reply_text,
+                "message": plain_public_text(reply_text),
                 "access_token": self.access_token
             }
             res = requests.post(url, data=payload)

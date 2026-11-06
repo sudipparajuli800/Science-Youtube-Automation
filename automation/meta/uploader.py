@@ -6,6 +6,7 @@ import requests
 from google import genai
 from google.genai import types
 from typing import List, Dict
+from ..content.public_text import plain_public_text
 
 class MetaUploader:
     def __init__(self):
@@ -128,7 +129,7 @@ class MetaUploader:
         Text to translate:
         "{text}"
         """
-        return self._call_llm_with_retry(prompt)
+        return plain_public_text(self._call_llm_with_retry(prompt))
 
     def translate_srt_content(self, srt_content: str, target_lang: str) -> str:
         """Parses SRT blocks, translates subtitle texts in batch to preserve context, and reconstructs SRT."""
@@ -182,13 +183,15 @@ class MetaUploader:
             translated_text = translated_map.get(block['idx'], block['text'])
             reconstructed.append(f"{block['idx']}\n{block['time_code']}\n{translated_text}\n")
             
-        return "\n".join(reconstructed)
+        return plain_public_text("\n".join(reconstructed))
 
     def upload_video(self, video_path: str, title: str, description: str, tags: List[str] = None) -> str:
         """Main method to upload a video/reel to Facebook and cross-post to Instagram."""
         if not self.access_token or not self.page_id:
             print("Meta posting credentials missing. Skipping Meta upload.")
             return None
+
+        title, description = plain_public_text(title), plain_public_text(description)
 
         # Detect aspect ratio to classify if it is a Reel
         is_reel = True
@@ -274,7 +277,7 @@ class MetaUploader:
                 "video_id": video_id,
                 "upload_phase": "finish",
                 "video_state": "PUBLISHED",
-                "description": description,
+                "description": plain_public_text(description),
                 "access_token": self.access_token
             }
             finish_res = requests.post(init_url, data=publish_params)
@@ -292,8 +295,8 @@ class MetaUploader:
         try:
             url = f"https://graph-video.facebook.com/{self.api_version}/{self.page_id}/videos"
             payload = {
-                "title": title,
-                "description": description,
+                "title": plain_public_text(title),
+                "description": plain_public_text(description),
                 "access_token": self.access_token
             }
             with open(video_path, "rb") as f:
@@ -363,7 +366,7 @@ class MetaUploader:
             }
             # The files key name must match Facebook specification, filename should incorporate the locale
             files = {
-                "captions_file": (f"captions.{locale}.srt", srt_content.encode("utf-8"), "application/x-subrip")
+                "captions_file": (f"captions.{locale}.srt", plain_public_text(srt_content).encode("utf-8"), "application/x-subrip")
             }
             res = requests.post(url, data=payload, files=files)
             if res.json().get("success"):
@@ -400,7 +403,7 @@ class MetaUploader:
                     container_payload = {
                         "media_type": "REELS",
                         "upload_type": "resumable",
-                        "caption": caption,
+                        "caption": plain_public_text(caption),
                         "access_token": self.access_token
                     }
                     c_res = requests.post(container_url, data=container_payload)
@@ -462,7 +465,7 @@ class MetaUploader:
                 container_payload = {
                     "media_type": "REELS",
                     "video_url": source_url,
-                    "caption": caption,
+                    "caption": plain_public_text(caption),
                     "access_token": self.access_token
                 }
                 c_res = requests.post(container_url, data=container_payload)
@@ -528,6 +531,7 @@ class MetaUploader:
             print(f"Meta photo post: image not found at {image_path}")
             return None
 
+        caption = plain_public_text(caption)
         fb_photo_id, fb_image_url = self._upload_facebook_photo(image_path, caption)
         if not fb_photo_id:
             print("Facebook photo upload failed. Cannot cross-post to Instagram.")
@@ -546,7 +550,7 @@ class MetaUploader:
         Returns (photo_id, public_image_url) — either may be None on failure."""
         try:
             url = f"https://graph.facebook.com/{self.api_version}/{self.page_id}/photos"
-            payload = {"caption": caption, "access_token": self.access_token}
+            payload = {"caption": plain_public_text(caption), "access_token": self.access_token}
             with open(image_path, "rb") as f:
                 files = {"source": f}
                 res = requests.post(url, data=payload, files=files)
@@ -598,7 +602,7 @@ class MetaUploader:
             container_url = f"https://graph.facebook.com/{self.api_version}/{ig_account_id}/media"
             container_payload = {
                 "image_url": image_url,
-                "caption": caption,
+                "caption": plain_public_text(caption),
                 "access_token": self.access_token,
             }
             c_res = requests.post(container_url, data=container_payload)

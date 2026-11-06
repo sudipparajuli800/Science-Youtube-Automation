@@ -80,3 +80,12 @@ automation/storage/generated_clips/
 automation/storage/mpl-cache/
 automation/media/visual_bank/*.mp4
 automation/storage/visual_bank/
+
+# Remotion dependencies, browser, bundles and rendered scene cache
+motion/node_modules/
+motion/.bundle/
+motion/.bundle-stamp
+motion/.renderer-ready
+.remotion/
+motion/.remotion/
+automation/storage/motion_cache/

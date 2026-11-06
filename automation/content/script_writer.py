@@ -7,6 +7,7 @@ import json
 import re
 from typing import List, Dict
 from .editorial import DIRECTOR_BRIEF, prepare_scenes
+from .public_text import plain_public_text
 
 # Sentinel returned by _call_with_retry when every Gemini key AND every Groq fallback
 # has failed. Callers that use this directly as content (not through one of the
@@ -285,7 +286,7 @@ Return only speech text, without markup, directions, headings, or image cues.
         text = re.sub(r'\(.*?\)', '', text)
         text = re.sub(r'^(Anchor|Narrator|Voiceover|Anchorperson|Speaker):\s*', '', text, flags=re.IGNORECASE | re.MULTILINE)
         text = re.sub(r'#\w+', '', text)
-        return text.strip()
+        return plain_public_text(text)
 
     def clean_json_response(self, text: str) -> str:
         match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
@@ -344,11 +345,17 @@ Return only speech text, without markup, directions, headings, or image cues.
         }
         prompt = f"""Plan footage for a science video about {topic}.
 Return JSON only: an object with scenes and thumbnail_data.
-Each scene needs narration (verbatim), visual_type (image, ai_video, kinetic_stat, data_bars),
+Each scene needs narration (verbatim), visual_type (animation, image, ai_video, kinetic_stat, data_bars),
 image_cue (concrete subject and action), ai_video_prompt (subject/action/camera for illustrations),
 named_entity (optional short label),
 stat_data (null or value/unit/label), bar_data (null or label/value objects).
-Use graphics only when justified by spoken numbers. Most scenes should be image.
+Use animation for causal processes, transport, comparisons, orbits and diagrams.
+Each animation scene needs animation: {{"template":"flow","title":"Short title",
+"nodes":[{{"label":"A subject from narration","icon":"water"}},{{"label":"Another subject","icon":"leaf"}}]}}.
+For bars use items [{{"label":"subject","value":2}}] and a unit, all stated in narration.
+For refraction only template/title are needed. Photo needs nodes plus image_cue.
+Most mechanisms should be explained visually; mix in real images when useful.
+No arbitrary statistics, decorative full-screen narration, or fabricated simulations.
 thumbnail_data needs hook_phrase (up to 4 accurate words), supporting_fact,
 thumbnail_bg_query and thumbnail_subject_query. Match the actual topic.
 Script: {script}
@@ -468,6 +475,10 @@ Script: {script}
         - Add a final line with 6-10 relevant hashtags (mix broad: #Science #Space with
           specific-to-this-topic tags). Always include #DailyDeepSpace.
         - Be scientifically accurate. Never exaggerate or make unverifiable claims.
+        - Use plain text, without Markdown or asterisks around words.
+        - Provide overlay_headline: 3-7 words for the image. Make a specific, honest
+          curiosity hook that the caption answers. No hashtags, emoji, exaggerated
+          claims, fabricated numbers, or generic shock phrases.
 
         Also provide a short (4-8 word) plain-English image search phrase describing what photo
         would best illustrate this specific post (e.g. "Hubble telescope deep field galaxies",
@@ -477,6 +488,7 @@ Script: {script}
         {{
           "topic": "3-6 word summary of what this post is about (internal tracking only)",
           "caption": "the full caption text, ready to post, including the hashtag line",
+          "overlay_headline": "a short accurate curiosity hook for the image",
           "image_query": "the image search phrase"
         }}
         """
@@ -496,16 +508,19 @@ Script: {script}
             if isinstance(data, dict) and str(data.get("caption", "")).strip():
                 return {
                     "topic": str(data.get("topic", post_type)).strip() or post_type,
-                    "caption": str(data.get("caption", "")).strip(),
+                    "caption": plain_public_text(data.get("caption", "")),
+                    "overlay_headline": plain_public_text(data.get("overlay_headline", "")),
                     "image_query": str(data.get("image_query", "")).strip() or "science abstract background",
                 }
         except Exception as e:
             print(f"[ScriptWriter] Social post JSON parse error: {e}")
 
-        # LLM responded but not in the requested JSON shape — use the raw text as the
-        # caption rather than discarding a perfectly usable response.
+        # Plain prose can still be useful; malformed JSON must never be a caption.
+        fallback_caption = plain_public_text(raw)[:600]
+        if self.clean_json_response(raw).lstrip().startswith(('{', '[')):
+            fallback_caption = ''
         return {
             "topic": post_type,
-            "caption": raw.strip()[:600],
+            "caption": fallback_caption,
             "image_query": "science abstract background",
         }

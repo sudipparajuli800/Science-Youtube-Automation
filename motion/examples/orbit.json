@@ -1,0 +1,19 @@
+{
+  "spec": {
+    "template": "orbit",
+    "title": "Earth around the Sun",
+    "nodes": [
+      {
+        "label": "Sun",
+        "icon": "sun"
+      },
+      {
+        "label": "Earth",
+        "icon": "planet"
+      }
+    ]
+  },
+  "frames": 180,
+  "width": 1080,
+  "height": 1920
+}

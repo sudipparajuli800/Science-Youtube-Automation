@@ -2,6 +2,10 @@
 
 A fully automated international news publishing system that detects breaking news for YouTube Shorts and produces daily summaries for long-form videos.
 
+For short image headlines and clean public captions, see [Social post styling](SOCIAL_POST_STYLE.md).
+
+For script-driven Remotion diagrams, charts and image animation, see [Motion graphics](MOTION_GRAPHICS.md).
+
 For hosted Wan video generation or a free-cloud-GPU visual bank, see [Video generation setup](VIDEO_GENERATION_SETUP.md).
 
 ## Features

@@ -1,0 +1,24 @@
+{
+  "spec": {
+    "template": "bars",
+    "title": "Two orbital years",
+    "unit": "days",
+    "items": [
+      {
+        "label": "Mercury",
+        "value": 88
+      },
+      {
+        "label": "Earth",
+        "value": 365
+      }
+    ]
+  },
+  "frames": 180,
+  "width": 1080,
+  "height": 1920,
+  "cues": [
+    0,
+    75
+  ]
+}

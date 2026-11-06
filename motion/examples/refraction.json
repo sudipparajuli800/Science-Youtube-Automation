@@ -1,0 +1,9 @@
+{
+  "spec": {
+    "template": "refraction",
+    "title": "Light changes direction"
+  },
+  "frames": 180,
+  "width": 1080,
+  "height": 1920
+}

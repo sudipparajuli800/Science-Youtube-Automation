@@ -1,3 +1,4 @@
+from ..content.public_text import plain_public_text
 import os
 import time
 import random
@@ -289,7 +290,7 @@ class CommentHandler:
             body = {
                 'snippet': {
                     'parentId': parent_id,
-                    'textOriginal': reply_text
+                    'textOriginal': plain_public_text(reply_text)
                 }
             }
             request = self.youtube.comments().insert(

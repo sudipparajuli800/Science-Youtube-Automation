@@ -6,6 +6,7 @@ import hashlib
 from typing import List, Dict
 
 from .video_generation import VideoGenerator
+from .motion_graphics import engine_ready, validate_animation
 from .image_fetcher import ImageFetcher
 from . import stock_media
 from . import visual_relevance
@@ -40,7 +41,7 @@ class AssetOrchestrator:
         self._used_assets.clear()
         self._verification_unavailable = False
         today = datetime.date.today().isoformat()
-        plan_hash = hashlib.sha256(json.dumps([scenes, self.video_generator.provider, self.video_generator.model, self.video_generator.limit, os.getenv("LOCAL_VISUAL_RELEVANCE", ""), "cpu-matching-v1"], sort_keys=True).encode()).hexdigest()
+        plan_hash = hashlib.sha256(json.dumps([scenes, self.video_generator.provider, self.video_generator.model, self.video_generator.limit, os.getenv("LOCAL_VISUAL_RELEVANCE", ""), "cpu-matching-v1", engine_ready(), "remotion-v1"], sort_keys=True).encode()).hexdigest()
 
         # ── Resume support: check for existing manifest ────────────────────────
         existing = self._find_existing_manifest(topic, today)
@@ -108,8 +109,30 @@ class AssetOrchestrator:
                 "ai_video_prompt": ai_video_prompt,
                 "question_text": scene.get("question_text"),
                 "emphasis_phrase": emphasis_phrase,
-                "bar_data": scene.get("bar_data")
+                "bar_data": scene.get("bar_data"),
+                "animation": scene.get("animation")
             }
+
+            if visual_type == 'animation':
+                spec = validate_animation(scene.get('animation'), narration, topic)
+                if spec and engine_ready():
+                    if spec['template'] == 'photo':
+                        photos = stock_media.fetch_real_photos(image_cue, 3, job_dir,
+                            f'animation_{idx}', portrait=(aspect_ratio == '9:16'))
+                        photo = self._pick_relevant_asset(photos, narration)
+                        if photo:
+                            scene_entry['asset_path'] = photo
+                        else:
+                            spec = None
+                    if spec:
+                        scene_entry.update(asset_type='animation', animation=spec,
+                            source={'provider': 'Remotion', 'kind': 'authored explanatory graphic'})
+                        manifest['scenes'].append(scene_entry)
+                        self._save_manifest(manifest)
+                        continue
+                print(f'[AssetOrchestrator] Scene {idx}: animation unavailable/invalid; trying media.')
+                visual_type = 'image'
+                scene_entry['visual_type'] = 'image'
 
             if self._verification_unavailable:
                 self._use_explainer_card(scene_entry, topic, job_dir, aspect_ratio)
@@ -213,6 +236,7 @@ class AssetOrchestrator:
         print(f"[AssetOrchestrator] Job {job_id} complete. "
               f"{ai_video_count} AI video clip(s), "
               f"{stock_video_count} real stock-video clip(s), "
+              f"{sum(s['asset_type'] == 'animation' for s in manifest['scenes'])} explanatory animation(s), "
               f"{sum(1 for s in manifest['scenes'] if s['asset_type']=='image')} image background(s).")
         return manifest
 

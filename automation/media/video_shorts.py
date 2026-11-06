@@ -415,14 +415,20 @@ class VideoShortsGenerator:
                 asset_path = scene.get("asset_path")
 
                 # Fallback background
-                if not asset_path or not os.path.exists(asset_path):
+                if scene_type != "animation" and (not asset_path or not os.path.exists(asset_path)):
                     from PIL import Image as PilImage
                     fb = PilImage.new("RGB", (1080, 1920), (10, 18, 30))
                     asset_path = f"automation/storage/shorts_fallback_bg_{i}.jpg"
                     fb.save(asset_path)
 
                 try:
-                    if scene_type == "typewriter_text":
+                    if scene_type == 'animation':
+                        from .motion_graphics import render_animation
+                        motion_path = render_animation(scene['animation'], dur, 1080, 1920, asset_path,
+                                                       word_offsets=word_offsets, scene_start=timing['start'])
+                        scene['rendered_asset_path'] = motion_path
+                        clip = VideoFileClip(motion_path).without_audio().set_duration(dur)
+                    elif scene_type == "typewriter_text":
                         clip = renderer.render_typewriter(
                             asset_path, narration, dur, 
                             typewriter_words=scene.get("typewriter_words"),
