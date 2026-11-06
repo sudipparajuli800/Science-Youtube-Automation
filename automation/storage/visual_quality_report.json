@@ -1,7 +1,7 @@
 {
   "status": "ready",
-  "scenes": 8,
-  "moving_scenes": 2,
+  "scenes": 10,
+  "moving_scenes": 3,
   "cards": 6,
   "kie_key_configured": true,
   "fal_key_configured": true,
