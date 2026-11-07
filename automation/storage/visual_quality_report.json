@@ -1,8 +1,10 @@
 {
   "status": "ready",
-  "scenes": 10,
-  "moving_scenes": 3,
-  "cards": 6,
+  "scenes": 8,
+  "moving_scenes": 2,
+  "footage_scenes": 2,
+  "animation_scenes": 0,
+  "cards": 5,
   "kie_key_configured": true,
   "fal_key_configured": true,
   "local_relevance_enabled": true
