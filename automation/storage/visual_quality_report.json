@@ -1,9 +1,9 @@
 {
-  "status": "held",
+  "status": "ready",
   "scenes": 7,
-  "moving_scenes": 0,
+  "moving_scenes": 3,
   "footage_scenes": 0,
-  "animation_scenes": 0,
+  "animation_scenes": 3,
   "cards": 4,
   "kie_key_configured": true,
   "fal_key_configured": true,
