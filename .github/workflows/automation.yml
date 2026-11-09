@@ -97,6 +97,22 @@ jobs:
           pip install 'torch>=2.6,<3' --index-url https://download.pytorch.org/whl/cpu
           pip install 'transformers>=4.45,<5'
 
+      - name: Install local science narrator
+        if: github.event.schedule == '15 1,12 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.pipeline == 'science' || github.event.inputs.pipeline == 'science_long'))
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y espeak-ng
+          pip install 'torch>=2.6,<3' --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-quality.txt
+          python -m spacy download en_core_web_sm
+
+      - name: Cache local narrator model
+        if: github.event.schedule == '15 1,12 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.pipeline == 'science' || github.event.inputs.pipeline == 'science_long'))
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
+          key: kokoro-narrator-v1
+
       - name: Cache CPU matching model
         uses: actions/cache@v4
         with:

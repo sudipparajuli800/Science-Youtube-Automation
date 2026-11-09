@@ -5,7 +5,7 @@ import re
 from typing import List, Dict
 
 class TTSEngine:
-    def __init__(self, voice_map=None, rate="+20%", pitch="+0Hz", volume="+0%", allow_elevenlabs=False):
+    def __init__(self, voice_map=None, rate="+20%", pitch="+0Hz", volume="+0%", allow_elevenlabs=False, provider="auto"):
         self.voice_map = voice_map or {
             "female": "ne-NP-HemkalaNeural",
             "male": "ne-NP-SagarNeural"
@@ -14,6 +14,7 @@ class TTSEngine:
         self.pitch = pitch
         self.volume = volume
         self.allow_elevenlabs = allow_elevenlabs
+        self.provider = provider
 
     async def generate_multivocal_audio(self, segments: List[Dict], output_path: str):
         """
@@ -63,11 +64,9 @@ class TTSEngine:
         if not text:
             return output_path, []
 
-        # 1. Normalize Decimals (e.g. "4.5" -> "4 point 5") BEFORE generic punctuation handling
-        text = re.sub(r'(\d+)\.(\d+)', r'\1 point \2', text)
-
         # Detection: If text contains Devanagari, apply Nepali normalization
         if re.search(r'[\u0900-\u097F]', text):
+            text = re.sub(r'(\d+)\.(\d+)', r'\1 point \2', text)
             abbreviations = {
                 r'डा\.': 'डाक्टर',
                 r'इ\.': 'इन्जिनियर',
@@ -82,14 +81,15 @@ class TTSEngine:
             for abbr, full in abbreviations.items():
                 text = re.sub(abbr, full, text)
             text = re.sub(r'([।.,!?])(?=[^\s])', r'\1 ', text)
-        else:
-            text = re.sub(r'([.,!?])(?=[^\s])', r'\1 ', text)
-
-        text = re.sub(r'\s+', ' ', text)
-
-        if os.getenv("TTS_PROVIDER", "auto").lower() == "kokoro":
+        provider = (os.getenv("TTS_PROVIDER") or self.provider).lower()
+        if provider in ("kokoro", "kokoro-edge"):
             from .kokoro_tts import generate_audio
-            return await asyncio.to_thread(generate_audio, text, output_path)
+            try:
+                return await asyncio.to_thread(generate_audio, text, output_path)
+            except Exception as exc:
+                if provider == "kokoro":
+                    raise
+                print(f"Kokoro narration failed ({type(exc).__name__}); trying Edge.")
 
         word_offsets = []
         hume_generated = False
@@ -102,7 +102,7 @@ class TTSEngine:
             os.getenv(k) for k in
             ["HUME_API_KEY","HUME_API_KEY2","HUME_API_KEY3","HUME_API_KEY4","HUME_API_KEY5"]
         )
-        if is_english and _hume_available:
+        if provider == "auto" and is_english and _hume_available:
             try:
                 from automation.media.hume_tts import HumeTTS
                 hume_voice_id = self.voice_map.get("hume_voice_id")
@@ -119,7 +119,7 @@ class TTSEngine:
 
         # ── STAGE 2: ELEVENLABS (Secondary fallback) ──────────────────────────────
         api_key = os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVENLAB_API_KEY")
-        use_elevenlabs = self.allow_elevenlabs and (api_key is not None) and not hume_generated
+        use_elevenlabs = provider == "auto" and self.allow_elevenlabs and bool(api_key) and not hume_generated
 
         if self.allow_elevenlabs and not api_key and not hume_generated:
             print(f"DEBUG: ElevenLabs allowed but API KEY missing.")
@@ -152,10 +152,11 @@ class TTSEngine:
             print(f"DEBUG: TTSEngine communicating with voice: {voice} (Rate: {rate or self.rate}, Pitch: {pitch or self.pitch})")
             MAX_RETRIES = 3
             retry_count = 0
+            edge_generated = False
             
             while retry_count < MAX_RETRIES:
                 try:
-                    communicate = edge_tts.Communicate(edge_text, voice, rate=rate or self.rate, pitch=pitch or self.pitch, volume=volume or self.volume)
+                    communicate = edge_tts.Communicate(edge_text, voice, rate=rate or self.rate, pitch=pitch or self.pitch, volume=volume or self.volume, boundary="WordBoundary")
                     audio_data = bytearray()
                     temp_offsets = []
                     
@@ -166,15 +167,16 @@ class TTSEngine:
                         elif ctype == "WordBoundary":
                             temp_offsets.append({
                                 "word": chunk.get("text") or chunk.get("Text"),
-                                "start": (chunk.get("offset") or chunk.get("Offset")) / 10**7,
-                                "duration": (chunk.get("duration") or chunk.get("Duration")) / 10**7
+                                "start": (chunk.get("offset", chunk.get("Offset", 0))) / 10**7,
+                                "duration": (chunk.get("duration", chunk.get("Duration", 0))) / 10**7
                             })
 
                     if audio_data and len(audio_data) > 0:
                         with open(output_path, "wb") as f:
                             f.write(audio_data)
                         word_offsets = temp_offsets
-                        break # Success!
+                        edge_generated = True
+                        break
                     else:
                         print(f"DEBUG: Attempt {retry_count + 1} - No audio data received for: {text[:50]}...")
                 except Exception as e:
@@ -184,9 +186,12 @@ class TTSEngine:
                 if retry_count < MAX_RETRIES:
                     await asyncio.sleep(2) # Wait before retry
         
+            if not edge_generated:
+                return None, []
+
         if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
             print(f"CRITICAL: Failed to generate audio file at {output_path} after attempts.")
-            return output_path, []
+            return None, []
         
         # Word Offset Fallback (for ElevenLabs or failed EdgeTTS offsets)
         if not word_offsets and len(text.strip()) > 0:

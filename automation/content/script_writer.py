@@ -233,7 +233,11 @@ class ScriptWriter:
         prompt = f"""Write an original science narration about "{topic}".
 Explain one concrete question through a causal mechanism, a concrete example,
 and a clear answer at the end. Length: 80-105 words, approximately 35-45 seconds.
-Use plain spoken English, varied sentence lengths, and a curious, measured voice.
+Write for a calm science educator speaking aloud. Use varied sentence lengths and
+punctuation that gives the listener time to absorb a key idea. Say units in full,
+introduce technical terms with a plain-language definition, and avoid stacked numbers.
+Put the observable effect and its immediate cause early. Make the example show
+how the mechanism works, with a detail the viewer could picture or test.
 Distinguish observations, hypotheses, analogies, and unresolved questions.
 No fabricated names, dates, quotes, discoveries, or numerical comparisons.
 No suspense filler, cosmic platitudes, imitation of creators, or engagement requests.
@@ -245,31 +249,18 @@ Return only speech text, without markup, directions, headings, or image cues.
             raise RuntimeError("Script generation failed; refusing to narrate generic filler.")
         return self.clean_script(script)
     def expand_science_script(self, topic: str) -> str:
-        """
-        Generates a master-class 900-word documentary script with expanded styles.
-        """
-        hooks = [
-            ("paradox", "Open with an unexplained observation or paradox. Make the viewer feel that something is wrong with how they understand reality."),
-            ("mystery", "Open with a genuine scientific mystery — something we only recently realized we don't understand."),
-            ("scale", "Open by describing the mind-blowing scale or numbers involved (extreme sizes, temperatures, or speeds)."),
-            ("counterintuitive", "Open with a counterintuitive fact that goes against common sense."),
-            ("history", "Open by narrating the specific moment of discovery. Use names, dates, and sensory details of the lab or field site."),
-            ("question", "Start with a direct, challenging question to the viewer that reframes a common object or idea.")
-        ]
-        tones = [
-            ("awe", "Awe and wonder (Style: Kurzgesagt) — Treat science as magic that actually works."),
-            ("conversational", "Conversational and curious (Style: Veritasium) — Build the logic from the ground up."),
-            ("journalistic", "Journalistic deep-dive — Serious, factual, and investigative."),
-            ("dramatic", "Dramatic narration — Build tension and release like a cinematic thriller.")
-        ]
-        
-        hook_name, hook_instr = random.choice(hooks)
-        tone_name, tone_instr = random.choice(tones)
-
+        """Write a long science explanation for spoken delivery."""
         prompt = f"""Write an original science narration about "{topic}".
 Explain one concrete question through a causal mechanism, a concrete example,
-and a clear answer at the end. Length: 750-900 words, approximately 5-6 minutes.
-Use plain spoken English, varied sentence lengths, and a curious, measured voice.
+and a clear answer at the end. Aim for 750-850 words if the topic supports it.
+Develop the explanation through a concrete observation, the mechanism, and the
+evidence that tests it. Let each section add a new idea. End with a prediction,
+implication, or limit that follows from the explanation. Skip repeated recaps.
+Write for a calm science educator speaking aloud. Use varied sentence lengths and
+punctuation that gives the listener time to absorb a key idea. Say units in full,
+introduce technical terms with a plain-language definition, and avoid stacked numbers.
+Put the observable effect and its immediate cause early. Make the example show
+how the mechanism works, with a detail the viewer could picture or test.
 Distinguish observations, hypotheses, analogies, and unresolved questions.
 No fabricated names, dates, quotes, discoveries, or numerical comparisons.
 No suspense filler, cosmic platitudes, imitation of creators, or engagement requests.

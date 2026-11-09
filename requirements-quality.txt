@@ -1,4 +1,3 @@
-# Optional local voice backend; existing Edge/Hume setup remains available.
+# Local science narration backend.
 kokoro>=0.9.4,<1
 soundfile>=0.13,<1
-faster-whisper>=1.1,<2

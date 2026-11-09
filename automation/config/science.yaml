@@ -3,9 +3,8 @@ type: "science"
 language: "en"
 tts_voice: 
   female: "en-US-JennyNeural"
-  male: "en-US-ChristopherNeural"
-  hume_voice_id: ""   # Set via HUME_VOICE_ID env var; leave blank to use env var
-  style: "calm"
+  provider: "kokoro-edge"
+  male: "en-US-AndrewMultilingualNeural"
   rate: "-5%"
   pitch: "+0Hz"
 upload:

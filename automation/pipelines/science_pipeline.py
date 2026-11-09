@@ -31,7 +31,8 @@ class SciencePipeline(BasePipeline):
             voice_map=t_v, 
             rate=t_v.get('rate', "-5%"),
             pitch=t_v.get('pitch', "+0Hz"),
-            allow_elevenlabs=False
+            allow_elevenlabs=False,
+            provider=t_v.get('provider', 'kokoro-edge')
         )
         self.vgen = VideoShortsGenerator()
         # Default science music volume to 0.04 as requested
@@ -132,9 +133,11 @@ class SciencePipeline(BasePipeline):
             media_paths = await self._fetch_media(prompt_topic, script)
 
         # 5. Generate Audio
-        male_voice = self.config.get('tts_voice', {}).get('male', "en-US-GuyNeural")
+        male_voice = self.config.get('tts_voice', {}).get('male', "en-US-AndrewMultilingualNeural")
         audio_path = "automation/storage/science_shorts_temp.mp3"
-        _, word_offsets = await self.tts.generate_audio(script, audio_path, voice=male_voice)
+        audio_path, word_offsets = await self.tts.generate_audio(script, audio_path, voice=male_voice)
+        if not audio_path:
+            raise RuntimeError("Narration failed. Check the Kokoro and Edge TTS logs.")
 
         # 6. Create Video
         video_path = "automation/storage/science_shorts_final.mp4"
@@ -291,9 +294,11 @@ class SciencePipeline(BasePipeline):
             media_paths = await self._fetch_media(topic, script, count_per_kw=2, is_long_form=True)
 
         # 6. Generate Audio
-        male_voice = self.config.get('tts_voice', {}).get('male', "en-US-GuyNeural")
+        male_voice = self.config.get('tts_voice', {}).get('male', "en-US-AndrewMultilingualNeural")
         audio_path = "automation/storage/science_long_temp.mp3"
-        _, word_offsets = await self.tts.generate_audio(script, audio_path, voice=male_voice)
+        audio_path, word_offsets = await self.tts.generate_audio(script, audio_path, voice=male_voice)
+        if not audio_path:
+            raise RuntimeError("Narration failed. Check the Kokoro and Edge TTS logs.")
 
         # 7. Create Long Video
         segments = [{"type": "science", "text": script, "topic": topic}]

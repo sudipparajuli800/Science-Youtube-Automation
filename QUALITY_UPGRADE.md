@@ -34,19 +34,20 @@ visual verification, and `PEXELS_API_KEY` or `PIXABAY_API_KEY` for footage.
 Use the existing manual GitHub workflow with `is_test=true` for the first render.
 These code changes do not change schedules or publish anything by themselves.
 
-Local voice is optional:
+Science videos use the Kokoro Michael voice on CPU, with word cues derived
+from synthesis. Andrew Multilingual through Edge TTS is the fallback.
+The video workflow installs the local narrator and caches its model.
+
+To use the same narrator locally, install eSpeak NG and run:
 
 ```powershell
 pip install -r requirements-quality.txt
+python -m spacy download en_core_web_sm
 $env:TTS_PROVIDER = 'kokoro'
-$env:KOKORO_VOICE = 'af_heart'
 ```
 
-Kokoro requires its model download and language dependencies; follow the upstream
-installation instructions for your OS. Whisper downloads an alignment model too.
-This backend deliberately fails if setup/alignment fails rather than silently changing
-voices. Existing Edge/Hume behavior remains the default. Whisper transcription is
-not forced alignment; review scientific terms and caption spelling.
+The first run downloads the Kokoro model. Set `KOKORO_VOICE` or `KOKORO_SPEED`
+to audition a different voice or pace.
 
 Review every claim against a primary scientific source, pronunciation, crop, source
 license, caption placement, and music balance before a production run. The code does
