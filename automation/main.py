@@ -76,6 +76,7 @@ async def main():
         await pipeline.run(mode=args.mode, is_test=args.test)
     except VisualQualityHold as hold:
         report_hold(str(hold))
+        raise SystemExit(2) from hold
 
 if __name__ == "__main__":
     asyncio.run(main())

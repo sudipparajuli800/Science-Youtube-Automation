@@ -41,7 +41,7 @@ class AssetOrchestrator:
         self._used_assets.clear()
         self._verification_unavailable = False
         today = datetime.date.today().isoformat()
-        plan_hash = hashlib.sha256(json.dumps([scenes, self.video_generator.provider, self.video_generator.model, self.video_generator.limit, os.getenv("LOCAL_VISUAL_RELEVANCE", ""), "cpu-matching-v1", engine_ready(), "layered-remotion-v2"], sort_keys=True).encode()).hexdigest()
+        plan_hash = hashlib.sha256(json.dumps([scenes, self.video_generator.provider, self.video_generator.model, self.video_generator.limit, os.getenv("LOCAL_VISUAL_RELEVANCE", ""), "cpu-matching-v1", engine_ready(), "structured-context-v3"], sort_keys=True).encode()).hexdigest()
 
         # ── Resume support: check for existing manifest ────────────────────────
         existing = self._find_existing_manifest(topic, today)
@@ -111,7 +111,8 @@ class AssetOrchestrator:
                 "emphasis_phrase": emphasis_phrase,
                 "bar_data": scene.get("bar_data"),
                 "animation": scene.get("animation"),
-                "media_context": scene.get("media_context") is True
+                "media_context": scene.get("media_context",
+                    visual_type == 'animation' and idx % 2 == 0 and stock_media.has_stock_api_keys()) is True
             }
 
             if visual_type == 'animation':

@@ -6,7 +6,7 @@ import random
 import json
 import re
 from typing import List, Dict
-from .editorial import DIRECTOR_BRIEF, prepare_scenes
+from .editorial import DIRECTOR_BRIEF, prepare_scenes, _words
 from .public_text import plain_public_text
 
 # Sentinel returned by _call_with_retry when every Gemini key AND every Groq fallback
@@ -130,8 +130,12 @@ class ScriptWriter:
         if not self.clients:
             print("WARNING: No Gemini clients available. Trying Groq immediately...")
 
+        blocked = getattr(self, '_blocked_gemini_clients', set())
+        self._blocked_gemini_clients = blocked
         # Try each Gemini client sequentially
         for client_idx, client in enumerate(self.clients):
+            if client_idx in blocked:
+                continue
             model_idx = self.model_candidates.index(self.model_id) if self.model_id in self.model_candidates else 0
             attempt = 0
             while attempt < max_retries:
@@ -155,6 +159,7 @@ class ScriptWriter:
 
                     if self._is_model_not_found(err_msg) and model_idx < len(self.model_candidates) - 1:
                         model_idx += 1
+                        self.model_id = self.model_candidates[model_idx]
                         print(f"Gemini model '{model_id}' unavailable, trying '{self.model_candidates[model_idx]}'...")
                         continue  # doesn't consume retry budget — this model will never succeed
 
@@ -163,6 +168,7 @@ class ScriptWriter:
                         break
 
                     if is_quota_error:
+                        blocked.add(client_idx)
                         print(f"Gemini Key {client_idx+1} Quota Exceeded/429. Trying next key...")
                         break  # Break out of attempts loop for this key, move to next key
 
@@ -292,14 +298,23 @@ Return only speech text, without markup, directions, headings, or image cues.
         return plain_public_text(text)
 
     def clean_json_response(self, text: str) -> str:
-        match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
-        if match: return match.group(1).strip()
-        match = re.search(r'```\s*(.*?)\s*```', text, re.DOTALL)
-        if match: return match.group(1).strip()
-        start = text.find('[')
-        end = text.rfind(']')
-        if start != -1 and end != -1: return text[start:end+1].strip()
-        return text.strip()
+        # Decode the outer value first. Searching for "[" first destroys objects
+        # containing scenes, nodes, bars, or other nested arrays.
+        text = str(text).strip()
+        fenced = re.search(r'```(?:json)?\s*(.*?)\s*```', text, re.DOTALL)
+        if fenced:
+            text = fenced.group(1).strip()
+        decoder = json.JSONDecoder()
+        for index, character in enumerate(text):
+            if character not in '{[':
+                continue
+            try:
+                value, _ = decoder.raw_decode(text[index:])
+                return json.dumps(value)
+            except ValueError:
+                # An incomplete outer value must not be replaced by a nested one.
+                return text[index:]
+        return text
 
     def generate_image_keywords(self, text: str, extra_context: str = "Science", is_long_form: bool = False) -> List[str]:
         """
@@ -387,15 +402,25 @@ Script: {script}
             raw = self._call_with_retry(DIRECTOR_BRIEF + prompt)
             try:
                 data = json.loads(self.clean_json_response(raw))
-                if isinstance(data, dict) and isinstance(data.get("scenes"), list):
-                    thumbnail = data.get("thumbnail_data")
-                    if isinstance(thumbnail, dict):
-                        self.last_thumbnail_data.update(thumbnail)
-                    return prepare_scenes(data["scenes"], script, topic)
-            except (ValueError, TypeError):
-                pass
-        # Preserve complete narration even if the director returns malformed JSON.
-        return prepare_scenes([], script, topic)
+                if isinstance(data, list):
+                    plan = data
+                elif isinstance(data, dict):
+                    plan = data.get('scenes')
+                else:
+                    plan = None
+                if not isinstance(plan, list) or not plan or not all(isinstance(scene, dict) for scene in plan):
+                    raise ValueError("Missing scene list")
+                if _words(' '.join(str(scene.get('narration', '')) for scene in plan)) != _words(script):
+                    raise ValueError("Scene narration differs from the supplied script")
+                if isinstance(data, dict) and isinstance(data.get('thumbnail_data'), dict):
+                    self.last_thumbnail_data.update(data['thumbnail_data'])
+                return prepare_scenes(plan, script, topic)
+            except (ValueError, TypeError) as error:
+                print(f"[Director] Invalid scene JSON ({type(error).__name__}); retrying.")
+        from ..media.visual_quality import VisualQualityHold
+        raise VisualQualityHold(
+            "The director could not produce a valid scene plan preserving the narration. "
+            "Stopped before asset searches instead of repeating one topic query across the video.")
 
     def generate_shorts_visual_scenes(self, topic: str, script: str) -> List[Dict]:
         return self.generate_visual_scenes(topic, script)

@@ -56,7 +56,7 @@ def check_visual_quality(manifest, is_test=False):
 
 
 def report_hold(message):
-    print(f'::notice title=Video held for visual quality::{message}')
+    print(f'::error title=Video held for visual quality::{message}')
     summary = os.getenv('GITHUB_STEP_SUMMARY')
     if summary:
         with open(summary, 'a', encoding='utf-8') as output:

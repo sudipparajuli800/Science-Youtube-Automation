@@ -548,6 +548,14 @@ class SciencePipeline(BasePipeline):
         video_id = None
         print(f"Uploading: {title}")
         video_id = self.uploader.upload_video(video_path, title, description, tags)
+        if not video_id:
+            raise RuntimeError("YouTube upload returned no video ID. Publication did not succeed.")
+        video_url = f"https://www.youtube.com/watch?v={video_id}"
+        print(f"Published YouTube video: {video_url}")
+        summary = os.getenv("GITHUB_STEP_SUMMARY")
+        if summary:
+            with open(summary, "a", encoding="utf-8") as output:
+                output.write(f"### YouTube video published\n\n{video_url}\n")
         
         # If we have an SRT file, upload it as captions
         if video_id and srt_path and os.path.exists(srt_path):

@@ -13,6 +13,9 @@ real subject, set media_context=true and supply a concrete image_cue. The editor
 will overlay the diagram on one continuous photo or video with local shading
 for legibility. Use standalone diagrams when no authentic subject image adds meaning.
 Prefer images for identifying subjects and video for an actual relevant action.
+When a molecular mechanism cannot be photographed directly, use a relevant visible
+instrument, organism, or experiment as context behind a schematic. Make image_cue
+describe that visible subject, not the full scientific claim or topic title.
 A new shot must add explanatory information, not repeat the previous label.
 Text is for short labels, captions or a useful number, not a wall of narration.
 Animation data must use one of: flow, transport, comparison, bars, orbit, refraction,
