@@ -1,7 +1,7 @@
 """Layer validated explanatory diagrams over contextual documentary media."""
 import os
 import numpy as np
-from PIL import Image, ImageFilter, ImageEnhance
+from PIL import Image
 from moviepy.editor import CompositeVideoClip, ImageClip, VideoFileClip, vfx
 from .motion_graphics import render_animation
 
@@ -24,7 +24,7 @@ def render_explainer(scene, duration, size, word_offsets, start):
     portrait = size[1] > size[0]
     panel_size = (1080, 960) if portrait else (900, 900)
     path = render_animation(scene['animation'], duration, *panel_size,
-                            word_offsets=word_offsets, scene_start=start)
+                            word_offsets=word_offsets, scene_start=start, overlay=True)
     scene['rendered_asset_path'] = context
     if context.lower().endswith(('.mp4', '.mov', '.webm', '.mkv', '.avi')):
         source = VideoFileClip(context).without_audio()
@@ -32,23 +32,25 @@ def render_explainer(scene, duration, size, word_offsets, start):
     else:
         source = ImageClip(context).set_duration(duration)
 
-    def blur(frame):
-        image = Image.fromarray(frame).resize((270, 480) if portrait else (480, 270))
-        image = ImageEnhance.Brightness(image.filter(ImageFilter.GaussianBlur(5))).enhance(.45)
-        return np.array(image.resize(size, Image.Resampling.BILINEAR))
+    # One documentary background, with a continuous shade only where labels sit.
+    width, height = size
+    axis = np.arange(height) / height if portrait else np.arange(width) / width
+    opacity = np.interp(axis, [.25, .55, 1], [0, 175, 205]).astype(np.uint8)
+    gradient = np.broadcast_to(opacity[:, None] if portrait else opacity[None, :],
+                               (height, width)).copy()
+    shade = Image.fromarray(gradient, 'L')
+    black = Image.new('RGB', size)
 
-    background = _fill(source, size).fl_image(blur)
-    # Keep the authentic subject clear while the diagram explains the relationship.
-    subject_size = (1000, 540) if portrait else (960, 760)
-    subject = source.resize(min(subject_size[0] / source.w, subject_size[1] / source.h))
-    left, top = (40, 80) if portrait else (50, 100)
-    subject = subject.set_position((left + (subject_size[0]-subject.w)/2,
-                                    top + (subject_size[1]-subject.h)/2))
+    def shade_frame(frame):
+        return np.array(Image.composite(black, Image.fromarray(frame), shade))
+
+    background = _fill(source, size).fl_image(shade_frame)
     panel = VideoFileClip(path).without_audio().set_duration(duration)
     panel = panel.crop(y2=int(panel.h * .78))
     panel = panel.resize(width=1020 if portrait else 820)
+    panel = panel.fx(vfx.mask_color, color=[0, 0, 0], thr=18, s=2)
     panel = panel.set_position((30, 650) if portrait else (1050, 100))
-    result = CompositeVideoClip([background, subject, panel], size=size).set_duration(duration)
+    result = CompositeVideoClip([background, panel], size=size).set_duration(duration)
     close_composite = result.close
 
     def close():

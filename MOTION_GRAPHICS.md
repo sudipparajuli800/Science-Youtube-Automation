@@ -45,10 +45,10 @@ the Atlantic to the Amazon:
 
 Set `media_context: true` on an animation scene and provide `image_cue`.
 The orchestrator checks one video and, if needed, one photo against the narration.
-Verified media appears in a clear subject window over a blurred background, with
-the diagram in a separate readable panel. The same layout supports still photos
+Verified media fills one continuous background. A gentle shade behind the
+explanation supports transparent diagrams and larger, semibold labels. The same layout supports still photos
 and looping footage. If no verified context is available, the diagram stands alone.
-Context media provenance is stored as `context_source` in the manifest.
+Captions use outlined type without a filled box. Context media provenance is stored as `context_source` in the manifest.
 
 Ordinary subject shots mix photos and moving footage. Their processing uses
 restrained motion and short labels. The editor removes decorative HUDs, scan lines

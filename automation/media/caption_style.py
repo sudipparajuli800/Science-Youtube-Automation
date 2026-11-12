@@ -1,20 +1,4 @@
-"""
-Shared "pop-up" caption rendering for both Shorts and long-form video.
-
-Consolidates three near-identical copies of this logic that had drifted slightly out of
-sync (different fonts, different colors, no background pill) across video_shorts.py
-(x2) and video_long.py. Centralizing it means a style change now applies consistently
-everywhere, and lets us upgrade the look in one place:
-  - solid rounded backdrop pill behind the text (readability over busy b-roll, and the
-    "boxed caption" look used by most high-retention Shorts editors)
-  - brand-consistent font (Barlow, matches the rest of the channel's on-screen text),
-    sized larger than the original pass for readability on small mobile screens
-  - true per-word karaoke-synced highlight: the gold color follows whichever word is
-    actually being spoken at that instant, driven by the TTS word timings. The
-    original version instead statically highlighted every word 6+ characters long for
-    the whole 2-3 word chunk regardless of which one was playing — visually arbitrary
-    and not synced to the audio at all.
-"""
+"""Shared timed captions with an outlined type treatment over documentary media."""
 import os
 import re
 from PIL import Image, ImageDraw, ImageFont
@@ -33,11 +17,10 @@ LANDSCAPE_CAPTION_Y_FRACTION = 0.78
 # so highlighted words pop against both the pill and the cyan sci-fi overlay elements.
 HIGHLIGHT_COLOR = (142, 218, 224)
 NORMAL_COLOR = (255, 255, 255)
-PILL_FILL = (8, 13, 24, 205)
 
 _FONT_PATHS = [
-    "automation/fonts/Barlow-Regular.ttf",
     "automation/fonts/Barlow-Bold.ttf",
+    "automation/fonts/Barlow-Regular.ttf",
     "automation/media/assets/Montserrat-Black.ttf",
     "automation/media/assets/Montserrat-ExtraBold.ttf",
     "C:\\Windows\\Fonts\\ariblk.ttf",
@@ -59,7 +42,7 @@ def get_pop_font(size: int) -> ImageFont.FreeTypeFont:
 
 
 def build_pop_chunks(word_offsets: list, max_words: int = 5) -> list:
-    """Groups timed words into 2-3 word display chunks, flushing early on punctuation."""
+    """Group timed words into short chunks, flushing on sentence punctuation."""
     chunks = []
     cur_chunk, cur_len = [], 0
     for w in word_offsets:
@@ -80,12 +63,10 @@ def build_pop_chunks(word_offsets: list, max_words: int = 5) -> list:
 
 
 def render_caption_pill(words_display: list, highlight_mask: list, font, max_w: int = 900) -> Image.Image:
-    """Renders one caption chunk as an RGBA image: a rounded dark pill behind bold
-    white/gold text, sized to fit its content at any chunk length."""
-    STROKE, SHADOW = 0, 0
+    """Render a transparent caption with a fine outline and a timed accent."""
+    STROKE, SHADOW = 2, 2
     HP, VP = 26, 18        # text padding inside the pill
     MARGIN = 16             # room around the pill for stroke/shadow overflow
-    RADIUS = 12
 
     dummy = Image.new('RGB', (1, 1))
     dd = ImageDraw.Draw(dummy)
@@ -117,10 +98,6 @@ def render_caption_pill(words_display: list, highlight_mask: list, font, max_w: 
 
     img = Image.new('RGBA', (img_w, img_h), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle(
-        [(MARGIN, MARGIN), (MARGIN + pill_w, MARGIN + pill_h)],
-        radius=RADIUS, fill=PILL_FILL,
-    )
 
     y = MARGIN + VP
     for line_idx, line in enumerate(lines):
@@ -129,12 +106,8 @@ def render_caption_pill(words_display: list, highlight_mask: list, font, max_w: 
         for idx, wrd, ww, _ in line:
             color = HIGHLIGHT_COLOR if highlight_mask[idx] else NORMAL_COLOR
             d.text((x + SHADOW, y + SHADOW), wrd, font=font, fill=(0, 0, 0, 150))
-            for dx in range(-STROKE, STROKE + 1):
-                for dy in range(-STROKE, STROKE + 1):
-                    if dx == 0 and dy == 0:
-                        continue
-                    d.text((x + dx, y + dy), wrd, font=font, fill=(0, 0, 0, 210))
-            d.text((x, y), wrd, font=font, fill=color)
+            d.text((x, y), wrd, font=font, fill=color,
+                   stroke_width=STROKE, stroke_fill=(0, 0, 0, 220))
             x += ww + sp_w
         y += max_h + line_gap
 
@@ -145,17 +118,12 @@ def make_pop_caption_clip(chunk: list, chunk_dur: float, font, max_w: int = 900,
     """Builds a fully positioned, ready-to-append clip for one caption chunk (already
     `.set_start()`'d from the chunk's absolute timing), with a quick rise + fade pop-in.
 
-    Internally this is a short sequence of same-sized pill images — one per word in the
+    Internally this is a short sequence of transparent caption images — one per word in the
     chunk, each with only that word gold — stitched back to back at the word's own TTS
     timing, so the highlight visibly tracks the narration instead of highlighting
     "long words" for the whole chunk regardless of which one is playing.
 
-    NOTE: deliberately animates via `fadein()` + a position offset rather than
-    `.resize()`. MoviePy 1.0.3's callable-resize path corrupts the RGBA alpha mask of
-    an ImageClip (it casts float mask values through `.astype('uint8')` without first
-    scaling by 255, so any pixel with partial alpha — like this pill's semi-opaque
-    backdrop — silently rounds down to fully transparent). fadein() and position both
-    leave the mask untouched, so the backdrop renders correctly.
+    Fade and position preserve soft RGBA edges on MoviePy 1.x.
     """
     from moviepy.editor import ImageClip, CompositeVideoClip
 

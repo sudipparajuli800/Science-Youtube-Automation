@@ -10,8 +10,8 @@ Each shot should cover one idea, normally 8-18 spoken words. No fixed scene coun
 Prioritize a specific real subject in each shot. Use animation to explain mechanisms
 and relationships alongside real imagery. For an animation that benefits from a
 real subject, set media_context=true and supply a concrete image_cue. The editor
-will layer the diagram above a softly blurred photo or video, with a clear subject
-window. Use standalone diagrams when no authentic subject image adds meaning.
+will overlay the diagram on one continuous photo or video with local shading
+for legibility. Use standalone diagrams when no authentic subject image adds meaning.
 Prefer images for identifying subjects and video for an actual relevant action.
 A new shot must add explanatory information, not repeat the previous label.
 Text is for short labels, captions or a useful number, not a wall of narration.

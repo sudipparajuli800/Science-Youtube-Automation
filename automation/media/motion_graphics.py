@@ -124,13 +124,13 @@ def animation_cues(spec, offsets, scene_start, duration):
     return cues
 
 
-def render_animation(spec, duration, width, height, image_path=None, word_offsets=None, scene_start=0):
+def render_animation(spec, duration, width, height, image_path=None, word_offsets=None, scene_start=0, overlay=False):
     if not engine_ready():
         raise RuntimeError('Remotion is not ready. Run npm ci --prefix motion and node motion/ensure-browser.mjs.')
     if not 0 < duration <= 60:
         raise ValueError('Animation scenes must last 0-60 seconds; split longer narration.')
     props = {'spec': spec, 'frames': math.ceil(duration * 30), 'width': width, 'height': height,
-             'cues': animation_cues(spec, word_offsets, scene_start, duration)}
+             'cues': animation_cues(spec, word_offsets, scene_start, duration), 'overlay': overlay}
     if image_path:
         from PIL import Image
         with Image.open(image_path) as image:

@@ -26,7 +26,7 @@ function Icon({kind='particle', x=0, y=0, size=100, color=teal}) {
   else if (kind === 'telescope') art = <><path d="M10 32L73 9L86 43L23 66ZM35 62L51 81L74 61M51 81V96M51 81L27 96M51 81L77 96M86 43L96 39L83 5L73 9"/></>;
   else if (kind === 'microbe') art = <><ellipse cx="50" cy="50" rx="28" ry="35"/><path d="M50 5V15M50 85V95M10 50H22M78 50H90M20 20L29 29M80 80L71 71M80 20L71 29M20 80L29 71"/><circle cx="42" cy="39" r="5"/><circle cx="59" cy="57" r="7"/></>;
   else art = <>{[[23,29,8],[57,17,6],[79,42,9],[44,54,10],[16,72,5],[65,81,7]].map(([cx,cy,r],i)=><circle key={i} cx={cx} cy={cy} r={r}/>)}</>;
-  return <g transform={`translate(${x-size/2},${y-size/2}) scale(${size/100})`} fill="none" stroke={color} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">{art}</g>;
+  return <g transform={`translate(${x-size/2},${y-size/2}) scale(${size/100})`} fill="none" stroke={color} strokeWidth="4.4" strokeLinecap="round" strokeLinejoin="round">{art}</g>;
 }
 
 function Label({text, x, y, size=38, anchor='middle', color=ink}) {
@@ -37,7 +37,7 @@ function Label({text, x, y, size=38, anchor='middle', color=ink}) {
     else line=(line+' '+word).trim();
   }
   if(line)lines.push(line);
-  return <text x={x} y={y} textAnchor={anchor} fontSize={size} fill={color} fontWeight="500">
+  return <text x={x} y={y} textAnchor={anchor} fontSize={size} fill={color} fontWeight="600">
     {lines.map((s,i)=><tspan key={i} x={x} dy={i===0?0:size*1.22}>{s}</tspan>)}
   </text>;
 }
@@ -55,7 +55,7 @@ function Flow({spec, f, fps, frames, w, h, portrait, cues=[]}) {
       const finish=Math.max(start+1,(cues[i+1] ?? (i*frames*.12+frames*.24))+10);
       const progress=interpolate(f,[start,finish],[0,1],clamp);
       return <g key={i}>
-        <path d={`M${p0.x} ${p0.y}L${p1.x} ${p1.y}`} stroke={teal} strokeWidth="3" fill="none" opacity=".65" pathLength="1" strokeDasharray="1" strokeDashoffset={1-progress} markerEnd={progress>.98?'url(#arrow)':undefined}/>
+        <path d={`M${p0.x} ${p0.y}L${p1.x} ${p1.y}`} stroke={teal} strokeWidth="4.5" fill="none" opacity=".9" pathLength="1" strokeDasharray="1" strokeDashoffset={1-progress} markerEnd={progress>.98?'url(#arrow)':undefined}/>
         {transport && Array.from({length:8},(_,j)=>{
           const phase=((f/Math.max(1,frames*.45)+j/8)%1);
           return <circle key={j} cx={p0.x+(p1.x-p0.x)*phase} cy={p0.y+(p1.y-p0.y)*phase+(portrait?0:Math.sin(j*3)*12)} r={3+j%3} fill="#d8bd83" opacity={progress*.85}/>;
@@ -66,8 +66,8 @@ function Flow({spec, f, fps, frames, w, h, portrait, cues=[]}) {
       const p=positions[i], entrance=spring({frame:Math.max(0,f-(cues[i] ?? i*frames*.11)),fps,config:{damping:200}});
       return <g key={i} opacity={entrance} transform={`translate(0,${(1-entrance)*22})`}>
         <circle cx={p.x} cy={p.y} r={portrait?80:66} fill="#192f3c" stroke={palette[i%5]} strokeOpacity=".3" strokeWidth="2"/>
-        <Icon kind={node.icon} x={p.x} y={p.y} size={portrait?110:90} color={palette[i%5]}/>
-        <Label text={node.label} x={portrait?p.x+150:p.x} y={portrait?p.y-8:p.y+130} anchor={portrait?'start':'middle'} size={portrait?54:38}/>
+        <Icon kind={node.icon} x={p.x} y={p.y} size={portrait?140:110} color={palette[i%5]}/>
+        <Label text={node.label} x={portrait?p.x+150:p.x} y={portrait?p.y-8:p.y+130} anchor={portrait?'start':'middle'} size={portrait?60:42}/>
 
       </g>;
     })}
@@ -127,16 +127,17 @@ function Refraction({f,frames,w,h}) {
   </>;
 }
 
-export function Scene({spec,frames,font,boldFont,image,cues=[]}) {
+export function Scene({spec,frames,font,boldFont,image,cues=[],overlay=false}) {
   const f=useCurrentFrame(), {width,height,fps}=useVideoConfig();
   const compact=width/height<1.4 && height/width<1.4;
   const portrait=height>width || compact, w=portrait?1000:1600,h=portrait?760:650;
   const common={spec,f,fps,frames,w,h,portrait,cues};
   const photo=spec.template==='photo' && image;
-  return <AbsoluteFill style={{background:'#101c28',fontFamily:'Barlow',color:ink,overflow:'hidden'}}>
+  return <AbsoluteFill style={{background:overlay?'#000000':'#101c28',fontFamily:'Barlow',color:ink,overflow:'hidden'}}>
     <style>{`@font-face{font-family:Barlow;src:url(data:font/ttf;base64,${font})}@font-face{font-family:Barlow;src:url(data:font/ttf;base64,${boldFont});font-weight:700}`}</style>
-    <div style={{position:'absolute',top:compact?'3%':'6.5%',left:'8%',fontSize:compact?22:portrait?28:25,letterSpacing:4,color:teal}}>SCIENCE / EXPLAINED</div>
-    <div style={{position:'absolute',top:'10%',left:'8%',width:'84%',fontWeight:700,fontSize:compact?48:portrait?72:64,lineHeight:1.08,opacity:interpolate(f,[0,12],[0,1],clamp)}}>{spec.title}</div>
+    {overlay && <style>{`svg [fill="#192f3c"]{fill:none;stroke:none}svg text{paint-order:stroke;stroke:#000;stroke-width:2px;stroke-linejoin:round}svg{filter:drop-shadow(0 2px 3px #000)}`}</style>}
+    {!overlay && <div style={{position:'absolute',top:compact?'3%':'6.5%',left:'8%',fontSize:compact?22:portrait?28:25,letterSpacing:4,color:teal}}>SCIENCE / EXPLAINED</div>}
+    <div style={{position:'absolute',top:'10%',left:'8%',width:'84%',fontWeight:700,fontSize:compact?54:portrait?72:64,lineHeight:1.08,textShadow:overlay?'0 2px 6px #000':undefined,transform:`translateY(${interpolate(f,[0,16],[12,0],clamp)}px)`,opacity:interpolate(f,[0,12],[0,1],clamp)}}>{spec.title}</div>
     {photo?<div style={{position:'absolute',top:'26%',left:'8%',width:'84%',height:'38%',borderRadius:24,overflow:'hidden'}}>
       <Img src={image} style={{width:'100%',height:'100%',objectFit:'cover',transform:`scale(${1+.045*f/frames})`}}/>
       <div style={{position:'absolute',inset:0,background:'linear-gradient(transparent 35%,rgba(8,20,29,.9))'}}/>
