@@ -79,6 +79,32 @@ class DirectorJsonRegressionTests(unittest.TestCase):
             with self.assertRaises(VisualQualityHold):
                 self.writer.generate_visual_scenes('Evaporation', self.narration)
 
+    def test_diagram_labels_are_built_from_source_word_ids(self):
+        self.scene['scene_id'] = 0
+        self.scene['animation']['nodes'] = [
+            {'label_word_ids': [0], 'icon': 'water'},
+            {'label_word_ids': [3], 'icon': 'particle'}]
+        self.writer._call_with_retry = Mock(return_value=json.dumps(self.data))
+        scenes = self.writer.generate_visual_scenes('Evaporation', self.narration)
+        self.assertEqual([n['label'] for n in scenes[0]['animation']['nodes']], ['Water', 'vapor'])
+
+    def test_numbered_short_shot_is_not_split_a_second_time(self):
+        text = ' '.join('word'+str(i) for i in range(21))
+        scene = {'scene_id': 0, 'visual_type': 'image', 'image_cue': 'water in a stream'}
+        self.writer._call_with_retry = Mock(return_value=json.dumps({'scenes': [scene]}))
+        # This direct editorial check isolates the post-director boundary.
+        from automation.content.editorial import prepare_scenes
+        scenes = prepare_scenes([{**scene, 'narration': text}], text, 'Water')
+        self.assertEqual(len(scenes), 1)
+        self.assertEqual(scenes[0]['narration'], text)
+
+    def test_invalid_label_word_id_is_rejected(self):
+        self.scene['scene_id'] = 0
+        self.scene['animation']['nodes'][0]['label_word_ids'] = [99]
+        self.writer._call_with_retry = Mock(return_value=json.dumps(self.data))
+        with self.assertRaises(VisualQualityHold):
+            self.writer.generate_visual_scenes('Evaporation', self.narration)
+
     def test_groq_json_mode_and_low_reasoning_are_requested(self):
         groq = Mock()
         groq.chat.completions.create.return_value.choices = [

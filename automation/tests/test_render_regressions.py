@@ -79,7 +79,7 @@ class LongDirectorTests(unittest.TestCase):
         script = ' '.join(f'Water moves through channel {i} and carries heat away.' for i in range(45))
         def response(prompt, **kwargs):
             shots = json.loads(prompt.rsplit('Narration shots JSON: ', 1)[1].strip())
-            return json.dumps({'scenes': [{'scene_id': shot['scene_id'], 'visual_type': 'image'}
+            return json.dumps({'scenes': [{'scene_id': shot['scene_id'], 'visual_type': 'image', 'image_cue': 'water flowing channel'}
                                           for shot in shots]})
         writer._call_with_retry = Mock(side_effect=response)
         scenes = writer.generate_visual_scenes('Heat', script)

@@ -233,6 +233,16 @@ class ScriptWriter:
                             break
 
                         if is_quota_error:
+                            headers = getattr(getattr(groq_err, 'response', None), 'headers', {}) or {}
+                            try:
+                                delay = float(headers.get('retry-after', 0))
+                            except (ValueError, TypeError):
+                                delay = 0
+                            if 0 < delay <= 90 and attempt + 1 < max_retries:
+                                attempt += 1
+                                print(f"Groq short rate limit; retrying after {delay:.0f} seconds.")
+                                time.sleep(delay + 1)
+                                continue
                             print(f"Groq Key {client_idx+1} Quota Exceeded/429. Trying next key...")
                             break
 
@@ -401,7 +411,8 @@ Return only speech text, without markup, directions, headings, or image cues.
                 narration_shots[-1] += ' ' + text
             else:
                 narration_shots.append(text)
-        shot_inputs = [{'scene_id': index, 'narration': text}
+        shot_inputs = [{'scene_id': index, 'narration': text,
+                        'words': {str(i): word for i, word in enumerate(text.split())}}
                        for index, text in enumerate(narration_shots)]
         prompt = f"""Plan footage for a science video about {topic}.
 Return JSON only: an object with scenes and thumbnail_data.
@@ -409,12 +420,16 @@ Assign visuals to EVERY supplied scene_id exactly once, in the supplied order.
 Each scene needs scene_id and visual_type (animation, image, ai_video, kinetic_stat, data_bars).
 Do not return or rewrite narration. The program attaches the original narration.
 Use the supplied shot narration to ground every subject, diagram label, and value.
-Also provide image_cue (concrete subject and action), ai_video_prompt (subject/action/camera for illustrations),
+EVERY scene, including standalone diagrams, must have image_cue: 3-7 words naming
+a visible photographable subject or experiment, not an abstract process or topic title.
+Also provide ai_video_prompt (subject/action/camera for illustrations),
 named_entity (optional short label),
 stat_data (null or value/unit/label), bar_data (null or label/value objects).
 Use animation for causal processes, transport, comparisons, orbits and diagrams.
 Each animation scene needs animation: {{"template":"flow","title":"Short title",
-"nodes":[{{"label":"A subject from narration","icon":"water"}},{{"label":"Another subject","icon":"leaf"}}]}}.
+"nodes":[{{"label_word_ids":[0,1],"icon":"water"}},{{"label_word_ids":[5],"icon":"leaf"}}]}}.
+For diagram nodes, choose 1-4 word IDs from that shot's words map for label_word_ids.
+Do not invent or paraphrase labels. The program builds their text from those words.
 For bars use items [{{"label":"subject","value":2}}] and a unit, all stated in narration.
 For refraction only template/title are needed. Photo needs nodes plus image_cue.
 Most mechanisms should be explained visually; mix in real images when useful.
@@ -443,11 +458,30 @@ Narration shots JSON: {json.dumps(shot_inputs, ensure_ascii=False)}
                     by_id = {scene['scene_id']: scene for scene in plan}
                     plan = [{**by_id[index], 'narration': text}
                             for index, text in enumerate(narration_shots)]
+                    for scene in plan:
+                        if not str(scene.get('image_cue') or '').strip():
+                            raise ValueError("Every shot needs a concrete image cue")
+                        animation = scene.get('animation')
+                        if not isinstance(animation, dict):
+                            continue
+                        words = scene['narration'].split()
+                        for node in animation.get('nodes', []):
+                            word_ids = node.get('label_word_ids') if isinstance(node, dict) else None
+                            if word_ids is None:
+                                continue
+                            if (not isinstance(word_ids, list) or not 1 <= len(word_ids) <= 4 or
+                                    any(type(i) is not int or not 0 <= i < len(words) for i in word_ids) or
+                                    word_ids != sorted(set(word_ids))):
+                                raise ValueError("Invalid diagram label word IDs")
+                            node['label'] = ' '.join(words[i] for i in word_ids).strip('.,;:!?')
                 elif _words(' '.join(str(scene.get('narration', '')) for scene in plan)) != _words(script):
                     raise ValueError("Legacy scene narration differs from the supplied script")
                 if isinstance(data, dict) and isinstance(data.get('thumbnail_data'), dict):
                     self.last_thumbnail_data.update(data['thumbnail_data'])
-                return prepare_scenes(plan, script, topic)
+                prepared = prepare_scenes(plan, script, topic)
+                animations = sum(scene.get('visual_type') == 'animation' for scene in prepared)
+                print(f"[Director] Prepared {len(prepared)} shots with {animations} validated animations.")
+                return prepared
             except (ValueError, TypeError) as error:
                 print(f"[Director] Invalid scene plan: {error}; response_chars={len(raw)}. Retrying.")
         from ..media.visual_quality import VisualQualityHold

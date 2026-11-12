@@ -20,7 +20,7 @@ A new shot must add explanatory information, not repeat the previous label.
 Text is for short labels, captions or a useful number, not a wall of narration.
 Animation data must use one of: flow, transport, comparison, bars, orbit, refraction,
 photo. Use 2-4 short nodes for flow/transport; exactly two for comparison/orbit.
-Each node has label (1-4 words taken from this scene) and icon (particle, leaf, water,
+Each node uses source word IDs to build its label (1-4 words from this scene) and icon (particle, leaf, water,
 ocean, rock, sun, planet, cell, dna, atom, brain, magnet, telescope, microbe). Give the animation a concise title. Flow arrows must
 follow a relationship actually explained in the narration. Bars need spoken values
 and one shared unit. Refraction illustrates air-to-water light bending only. Photo
@@ -82,7 +82,7 @@ def prepare_scenes(scenes, script, topic):
             kind = 'image'
         # Split long static holds at phrase boundaries. All words remain in order.
         words = text.split()
-        chunks = [words[i:i + 18] for i in range(0, len(words), 18)] if (kind == 'image' or len(words) > 30) else [words]
+        chunks = [words[i:i + 18] for i in range(0, len(words), 18)] if ((kind == 'image' and 'scene_id' not in scene) or len(words) > 30) else [words]
         for chunk in chunks:
             chunk_text = ' '.join(chunk)
             chunk_kind = kind
