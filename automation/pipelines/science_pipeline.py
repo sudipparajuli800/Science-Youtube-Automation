@@ -110,6 +110,24 @@ class SciencePipeline(BasePipeline):
         script = self.script_writer.generate_science_facts(prompt_topic)
         print(f"Short Script generated ({category}).")
 
+        # Measure speech before downloading assets or rendering animation.
+        from ..media.hume_tts import get_audio_duration
+        male_voice = self.config.get('tts_voice', {}).get('male', "en-US-AndrewMultilingualNeural")
+        audio_path = "automation/storage/science_shorts_temp.mp3"
+        for attempt in range(3):
+            if len(script.split()) > 110:
+                script = self.script_writer.shorten_science_script(script, 90)
+            result_path, word_offsets = await self.tts.generate_audio(script, audio_path, voice=male_voice)
+            if not result_path:
+                raise RuntimeError("Narration failed. Check the Kokoro and Edge TTS logs.")
+            duration = get_audio_duration(result_path)
+            if 0 < duration <= 58:
+                break
+            if duration <= 0 or attempt == 2:
+                raise RuntimeError("Short narration could not fit 58 seconds after bounded rewrites.")
+            target = max(35, min(90, int(len(script.split()) * 48 / duration)))
+            script = self.script_writer.shorten_science_script(script, target)
+
         # 3. Generate Visual Scene Manifest for Shorts
         print("Generating Shorts visual scene manifest...")
         visual_scenes = self.script_writer.generate_shorts_visual_scenes(prompt_topic, script)
@@ -131,13 +149,6 @@ class SciencePipeline(BasePipeline):
             print("WARNING: No visual scenes generated. Cannot proceed with premium Shorts render.")
             # Fallback legacy path
             media_paths = await self._fetch_media(prompt_topic, script)
-
-        # 5. Generate Audio
-        male_voice = self.config.get('tts_voice', {}).get('male', "en-US-AndrewMultilingualNeural")
-        audio_path = "automation/storage/science_shorts_temp.mp3"
-        audio_path, word_offsets = await self.tts.generate_audio(script, audio_path, voice=male_voice)
-        if not audio_path:
-            raise RuntimeError("Narration failed. Check the Kokoro and Edge TTS logs.")
 
         # 6. Create Video
         video_path = "automation/storage/science_shorts_final.mp4"

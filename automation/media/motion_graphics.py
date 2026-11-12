@@ -14,7 +14,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[2]
 MOTION = ROOT / 'motion'
 TEMPLATES = {'flow', 'transport', 'comparison', 'bars', 'orbit', 'refraction', 'photo'}
-ICONS = {'particle', 'leaf', 'water', 'ocean', 'rock', 'sun', 'planet', 'cell'}
+ICONS = {'particle', 'leaf', 'water', 'ocean', 'rock', 'sun', 'planet', 'cell', 'dna', 'atom', 'brain', 'magnet', 'telescope', 'microbe'}
 STOP = {'the', 'a', 'an', 'of', 'and', 'in', 'to', 'from', 'with', 'on', 'for'}
 
 

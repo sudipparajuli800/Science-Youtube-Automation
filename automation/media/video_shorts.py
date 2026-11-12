@@ -393,6 +393,9 @@ class VideoShortsGenerator:
         try:
             audio = AudioFileClip(audio_path)
             total_duration = audio.duration
+            if total_duration > 58.0:
+                audio.close()
+                raise ValueError("Short narration exceeds 58 seconds; shorten the script before rendering.")
 
             scenes = asset_manifest.get("scenes", [])
             if not scenes:
@@ -423,11 +426,9 @@ class VideoShortsGenerator:
 
                 try:
                     if scene_type == 'animation':
-                        from .motion_graphics import render_animation
-                        motion_path = render_animation(scene['animation'], dur, 1080, 1920, asset_path,
-                                                       word_offsets=word_offsets, scene_start=timing['start'])
-                        scene['rendered_asset_path'] = motion_path
-                        clip = VideoFileClip(motion_path).without_audio().set_duration(dur)
+                        from .layered_visuals import render_explainer
+                        clip = render_explainer(scene, dur, (1080, 1920),
+                                                word_offsets, timing['start'])
                     elif scene_type == "typewriter_text":
                         clip = renderer.render_typewriter(
                             asset_path, narration, dur, 
@@ -474,8 +475,6 @@ class VideoShortsGenerator:
             # Cuts stay on narration boundaries; inserted flashes used to desync captions.
             final_clips = scene_clips
             self.sfx_events = []
-            if total_duration > 58.0:
-                raise ValueError("Short narration exceeds 58 seconds; shorten the script before rendering.")
 
             combined = concatenate_videoclips(final_clips, method="compose")
 

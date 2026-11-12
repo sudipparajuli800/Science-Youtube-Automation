@@ -35,7 +35,7 @@ def _check_gemini(img_bytes, prompt):
         if ('gemini', key) in _UNAVAILABLE_KEYS:
             continue
         try:
-            client = genai.Client(api_key=key)
+            client = genai.Client(api_key=key, http_options={'timeout': 20000})
             for model in _MODEL_CANDIDATES:
                 try:
                     response = client.models.generate_content(model=model, contents=[

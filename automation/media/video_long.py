@@ -263,11 +263,9 @@ class VideoLongGenerator:
                 
                 try:
                     if vtype == 'animation':
-                        from .motion_graphics import render_animation
-                        motion_path = render_animation(scene['animation'], clip_duration, *self.size, apath,
-                                                       word_offsets=word_offsets, scene_start=start_t)
-                        scene['rendered_asset_path'] = motion_path
-                        clip = VideoFileClip(motion_path).without_audio().set_duration(clip_duration)
+                        from .layered_visuals import render_explainer
+                        clip = render_explainer(scene, clip_duration, self.size,
+                                                word_offsets, timing['start'])
                     elif vtype == "typewriter_text" and apath and os.path.exists(apath):
                         words = scene.get("typewriter_words")
                         clip = renderer.render_typewriter(
@@ -505,4 +503,13 @@ class VideoLongGenerator:
         except Exception as e:
             print(f"Audio mix composite error: {e}")
             final_video = final_video.set_audio(audio)
-        final_video.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac", threads=1, logger=None)
+        try:
+            final_video.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac",
+                                       threads=2, preset="veryfast", logger=None)
+        finally:
+            final_video.close()
+            for clip in bg_clips:
+                clip.close()
+            for clip in audio_mix:
+                clip.close()
+            audio.close()

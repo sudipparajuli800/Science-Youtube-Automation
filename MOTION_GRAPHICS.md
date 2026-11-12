@@ -18,7 +18,8 @@ available when they suit a scene.
 | photo | Animate a verified photo with short subject labels | 1–3 labels and image cue |
 
 Nodes have `label` and `icon`. Icons are `particle`, `leaf`, `water`, `ocean`,
-`rock`, `sun`, `planet` or `cell`. The scene writer selects a template and provides
+`rock`, `sun`, `planet`, `cell`, `dna`, `atom`, `brain`, `microbe`,
+`magnet` or `telescope`. The scene writer selects a template and provides
 data; it cannot supply JavaScript, HTML, arbitrary file paths or executable hooks.
 
 For example, this can illustrate a scene narrating that Saharan dust travels across
@@ -39,6 +40,19 @@ the Atlantic to the Amazon:
   }
 }
 ```
+
+## Contextual media layers
+
+Set `media_context: true` on an animation scene and provide `image_cue`.
+The orchestrator checks one video and, if needed, one photo against the narration.
+Verified media appears in a clear subject window over a blurred background, with
+the diagram in a separate readable panel. The same layout supports still photos
+and looping footage. If no verified context is available, the diagram stands alone.
+Context media provenance is stored as `context_source` in the manifest.
+
+Ordinary subject shots mix photos and moving footage. Their processing uses
+restrained motion and short labels. The editor removes decorative HUDs, scan lines
+and flare effects from these documentary shots.
 
 ## Timing and editorial checks
 
@@ -64,6 +78,18 @@ A validated animation with a prepared renderer counts toward the visual quality
 gate. A video can therefore publish with useful animations even when it has no stock
 footage. Cards and invalid/unrenderable animation specifications do not qualify.
 Renderer errors stop the render instead of silently replacing diagrams with blanks.
+Production holds videos when more than 25% of the scene plan uses fallback cards.
+For plans with four or more scenes, at least one third must include contextual
+imagery or footage, either as the main shot or behind a diagram.
+
+Shorts measure narration before sourcing assets. Overlong speech is rewritten and
+remeasured up to three times, preserving complete sentences and the explanation.
+Scenes align against the complete narration rather than searching far ahead for
+each individual word. Long-form scene plans are generated in bounded batches.
+
+Long-form uploads run Monday and Thursday at 18:00 Nepal time, alongside the
+existing manual `science_long` option. Both video formats retain the visual quality
+gate before publication.
 
 ## Setup
 

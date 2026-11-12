@@ -4,7 +4,7 @@ import time
 import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageFilter
-from moviepy.editor import VideoClip, ImageClip, VideoFileClip
+from moviepy.editor import VideoClip, ImageClip, VideoFileClip, CompositeVideoClip
 
 from .caption_style import PORTRAIT_CAPTION_Y_FRACTION, LANDSCAPE_CAPTION_Y_FRACTION
 
@@ -503,127 +503,52 @@ class SceneRenderer:
         )
         t_draw = ImageDraw.Draw(lt_overlay)
         t_draw.text((bx + 30, by + 15), named_entity.upper(), fill=(0, 240, 255, 255), font=ImageFont.truetype(font_path_bold, int(32 * (1.1 if self.mode == 'portrait' else 1.0))))
-        t_draw.text((bx + 30, by + 50), "SCIENTIFIC EVIDENCE", fill=(200, 200, 200, 255), font=ImageFont.truetype(font_path_reg, int(18 * (1.1 if self.mode == 'portrait' else 1.0))))
+        t_draw.text((bx + 30, by + 50), "SUBJECT", fill=(200, 200, 200, 255), font=ImageFont.truetype(font_path_reg, int(18 * (1.1 if self.mode == 'portrait' else 1.0))))
         return lt_overlay
 
-    def _render_image_scene_video_bg(self, video_path: str, duration: float, named_entity: str = None) -> VideoClip:
-        """Real stock-video b-roll used for an 'image'-type scene (see asset_orchestrator.py
-        — Pexels/Pixabay video search). Gives it the same cinematic grade / HUD / lower-third
-        treatment as a static photo background instead of playing the raw clip unstyled."""
-        vc = VideoFileClip(video_path)
-        if vc.duration < duration:
+    def _render_image_scene_video_bg(self, video_path, duration, named_entity=None):
+        source = VideoFileClip(video_path).without_audio()
+        if source.duration < duration:
             from moviepy.video.fx.all import loop
-            vc = loop(vc, duration=duration)
+            source = loop(source, duration=duration)
         else:
-            vc = vc.subclip(0, duration)
+            source = source.subclip(0, duration)
+        scale = max(self.WIDTH / source.w, self.HEIGHT / source.h)
+        clip = source.resize(scale)
+        clip = clip.crop(x_center=clip.w / 2, y_center=clip.h / 2,
+                         width=self.WIDTH, height=self.HEIGHT)
+        if named_entity:
+            overlay = ImageClip(np.array(self._build_lower_third_overlay(named_entity))).set_duration(duration)
+            result = CompositeVideoClip([clip, overlay], size=(self.WIDTH, self.HEIGHT)).set_duration(duration)
+            close_composite = result.close
 
-        lt_overlay = self._build_lower_third_overlay(named_entity) if named_entity else None
+            def close():
+                close_composite()
+                source.close()
 
-        def process(frame, t):
-            pil_frm = Image.fromarray(frame).convert("RGB")
-            graded = apply_cinematic_grade(self._cover_image(pil_frm))
-            if self.mode != 'portrait':
-                graded = apply_lens_flare(graded, t=t, intensity=0.2)
+            result.close = close
+            return result
+        return clip
 
-            graded_rgba = graded.convert("RGBA")
-            hud_overlay = Image.new("RGBA", (self.WIDTH, self.HEIGHT), (0, 0, 0, 0))
-            hud_draw = ImageDraw.Draw(hud_overlay)
-            draw_data_hud(hud_draw, self.WIDTH, self.HEIGHT, t, mode=self.mode,
-                          color=(0, 240, 255), label="SCIENCE")
-            graded_rgba = Image.alpha_composite(graded_rgba, hud_overlay)
-            if lt_overlay:
-                graded_rgba = Image.alpha_composite(graded_rgba, lt_overlay)
-            return np.array(graded_rgba.convert("RGB"))
-
-        return vc.fl(lambda gf, t: process(gf(t), t)).set_fps(30)
-
-    def render_image(self, bg_path: str, text: str, duration: float, named_entity: str = None) -> VideoClip:
-        """
-        Applies a Ken Burns zoom/pan, cinematic grades, and adds lower thirds if named_entity exists.
-        Transparently delegates to a video-background path when bg_path is a real video clip
-        (e.g. Pexels/Pixabay stock-video b-roll routed here for an 'image'-type scene).
-        """
+    def render_image(self, bg_path, text, duration, named_entity=None):
+        """Contextual media with restrained motion and a short subject label."""
         if str(bg_path).lower().endswith((".mp4", ".mov", ".avi", ".mkv", ".webm")):
             return self._render_image_scene_video_bg(bg_path, duration, named_entity)
-
-        pil_img = Image.open(bg_path).convert("RGB")
-        img_w, img_h = pil_img.size
-
-        # Setup lower third pill once if present
-        lt_overlay = self._build_lower_third_overlay(named_entity) if named_entity else None
-
-        self.image_scene_count += 1
-        pan_type = self.image_scene_count % 3
+        with Image.open(bg_path) as source:
+            image = apply_cinematic_grade(self._cover_image(source.convert("RGB")))
+        overlay = self._build_lower_third_overlay(named_entity) if named_entity else None
 
         def make_frame(t):
-            # Ken Burns effect
-            if self.mode == 'portrait':
-                scale = 1.0 + 0.035 * (t / duration)
-                cw, ch = int(self.WIDTH / scale), int(self.HEIGHT / scale)
-                
-                if pan_type == 0:
-                    # zoom-in-center
-                    x_start = (img_w - cw) // 2
-                    y_start = (img_h - ch) // 2
-                elif pan_type == 1:
-                    # zoom-in-top-right
-                    x_start = img_w - cw
-                    y_start = 0
-                else:
-                    # pan-left-to-right (no zoom, or slight zoom to allow pan)
-                    cw, ch = int(self.WIDTH / 1.035), int(self.HEIGHT / 1.035)
-                    max_x = img_w - cw
-                    x_start = int(max_x * (t / duration))
-                    y_start = (img_h - ch) // 2
-            else:
-                # Landscape: alternate between 3 Ken Burns moves
-                if pan_type == 0:
-                    # Zoom in from center
-                    scale = 1.0 + 0.08 * (t / duration)
-                    cw, ch = int(self.WIDTH / scale), int(self.HEIGHT / scale)
-                    x_start = (img_w - cw) // 2
-                    y_start = (img_h - ch) // 2
-                elif pan_type == 1:
-                    # Pan right while zooming in slightly
-                    scale = 1.0 + 0.06 * (t / duration)
-                    cw, ch = int(self.WIDTH / scale), int(self.HEIGHT / scale)
-                    max_x = max(0, img_w - cw)
-                    x_start = int(max_x * (t / duration))
-                    y_start = (img_h - ch) // 2
-                else:
-                    # Zoom out (pull back)
-                    scale = 1.08 - 0.08 * (t / duration)
-                    cw, ch = int(self.WIDTH / scale), int(self.HEIGHT / scale)
-                    x_start = max(0, (img_w - cw) // 2)
-                    y_start = max(0, (img_h - ch) // 2)
+            scale = 1 + .035 * t / max(duration, .001)
+            width, height = int(self.WIDTH / scale), int(self.HEIGHT / scale)
+            left, top = (self.WIDTH-width)//2, (self.HEIGHT-height)//2
+            frame = image.crop((left, top, left+width, top+height))
+            frame = frame.resize((self.WIDTH, self.HEIGHT), Image.Resampling.BILINEAR)
+            if overlay:
+                frame = Image.alpha_composite(frame.convert('RGBA'), overlay).convert('RGB')
+            return np.array(frame)
 
-            x_start = max(0, min(x_start, max(0, img_w - cw)))
-            y_start = max(0, min(y_start, max(0, img_h - ch)))
-            cropped = pil_img.crop((x_start, y_start, x_start + cw, y_start + ch))
-            
-            resized = cropped.resize((self.WIDTH, self.HEIGHT), Image.Resampling.LANCZOS)
-            graded = apply_cinematic_grade(resized)
-            
-            # ── Lens flare effect (landscape only for max visual impact) ──────
-            if self.mode != 'portrait':
-                graded = apply_lens_flare(graded, t=t, intensity=0.25)
-
-            # ── HUD corner brackets overlay ──────────────────────────────────
-            graded_rgba = graded.convert("RGBA")
-            hud_overlay = Image.new("RGBA", (self.WIDTH, self.HEIGHT), (0, 0, 0, 0))
-            hud_draw = ImageDraw.Draw(hud_overlay)
-            draw_data_hud(hud_draw, self.WIDTH, self.HEIGHT, t, mode=self.mode,
-                          color=(0, 240, 255), label="SCIENCE")
-            graded_rgba = Image.alpha_composite(graded_rgba, hud_overlay)
-
-            # ── Composite named entity pill if present ───────────────────────
-            if lt_overlay:
-                graded_rgba = Image.alpha_composite(graded_rgba, lt_overlay)
-                
-            return np.array(graded_rgba.convert("RGB"))
-
-        clip = VideoClip(make_frame, duration=duration)
-        return clip.set_fps(30)
+        return VideoClip(make_frame, duration=duration).set_fps(30)
 
     def render_ai_video(self, video_path: str, duration: float) -> VideoClip:
         """

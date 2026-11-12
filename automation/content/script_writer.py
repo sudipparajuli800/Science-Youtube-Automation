@@ -79,7 +79,7 @@ class ScriptWriter:
             client.models.generate_content = patched_generate_content
             return client
 
-        self.clients = [patch_gemini_client(genai.Client(api_key=k)) for k in self.api_keys]
+        self.clients = [patch_gemini_client(genai.Client(api_key=k, http_options=types.HttpOptions(timeout=45000))) for k in self.api_keys]
         self.client = self.clients[0] if self.clients else None
         # Ordered by preference. "gemini-flash-latest" is Google's stable alias that
         # always points at their current-generation Flash model — using it (instead of a
@@ -125,7 +125,7 @@ class ScriptWriter:
             and ("model" in err_msg_lower or "not_found" in err_msg_lower)
         ) or "no longer available" in err_msg_lower or "decommissioned" in err_msg_lower
 
-    def _call_with_retry(self, prompt: str, max_retries: int = 5) -> str:
+    def _call_with_retry(self, prompt: str, max_retries: int = 2) -> str:
         """Calls Gemini rotating through keys, falling back to Groq only if all fail or hit quota."""
         if not self.clients:
             print("WARNING: No Gemini clients available. Trying Groq immediately...")
@@ -248,6 +248,18 @@ Return only speech text, without markup, directions, headings, or image cues.
         if is_llm_failure(script) or not script.strip():
             raise RuntimeError("Script generation failed; refusing to narrate generic filler.")
         return self.clean_script(script)
+    def shorten_science_script(self, script, target_words):
+        prompt = f"""Edit this spoken science explanation to at most {target_words} words.
+Preserve the core question, the causal explanation, and an accurate conclusion.
+Keep uncertainty and qualifications that affect the meaning. Remove secondary
+examples and repetition first. Return only narration, with complete sentences.
+Original narration:
+{script}"""
+        result = self._call_with_retry(prompt)
+        if is_llm_failure(result) or not result.strip():
+            raise RuntimeError("Could not shorten narration safely.")
+        return self.clean_script(result)
+
     def expand_science_script(self, topic: str) -> str:
         """Write a long science explanation for spoken delivery."""
         prompt = f"""Write an original science narration about "{topic}".
@@ -330,6 +342,26 @@ Return only speech text, without markup, directions, headings, or image cues.
             return [f"{extra_context} science background"] * 10
 
     def generate_visual_scenes(self, topic: str, script: str) -> List[Dict]:
+        # Keep each director response within the provider's output budget.
+        if len(script.split()) > 180:
+            sentences = re.split(r'(?<=[.!?])\s+', script.strip())
+            batches, current = [], []
+            for sentence in sentences:
+                if current and len((' '.join(current) + ' ' + sentence).split()) > 180:
+                    batches.append(' '.join(current))
+                    current = []
+                current.append(sentence)
+            if current:
+                batches.append(' '.join(current))
+            if len(batches) > 1:
+                scenes = []
+                first_thumbnail = None
+                for batch in batches:
+                    scenes.extend(self.generate_visual_scenes(topic, batch))
+                    if first_thumbnail is None:
+                        first_thumbnail = dict(self.last_thumbnail_data)
+                self.last_thumbnail_data = first_thumbnail
+                return prepare_scenes(scenes, script, topic)
         self.last_thumbnail_data = {
             "hook_phrase": topic[:40], "supporting_fact": "",
             "thumbnail_bg_query": topic, "thumbnail_subject_query": topic,

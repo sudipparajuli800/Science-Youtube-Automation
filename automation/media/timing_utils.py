@@ -33,71 +33,45 @@ def calculate_adjusted_durations(scenes, fps=30) -> list[float]:
     return durations
 
 def match_scenes_to_timestamps(scenes, word_offsets, total_duration):
-    """
-    Sequentially matches each scene's narration words to the continuous list of word_offsets.
-    Returns a list of dicts: {"start": float, "end": float, "duration": float, "word_times": list[float]}.
-    """
-    def clean_word(w):
-        return re.sub(r'[^a-zA-Z0-9]', '', w).lower()
-        
-    cleaned_offsets = [clean_word(w["word"]) for w in word_offsets]
-    current_offset_idx = 0
-    num_offsets = len(word_offsets)
-    scene_timings = []
-    
-    for idx, scene in enumerate(scenes):
-        narration = scene.get("narration", "")
-        scene_words = [clean_word(w) for w in narration.split() if clean_word(w)]
-        if not scene_words or not word_offsets:
-            scene_timings.append({
-                "start": idx * (total_duration / max(1, len(scenes))),
-                "end": (idx + 1) * (total_duration / max(1, len(scenes))),
-                "word_times": [0.0]
-            })
-            continue
-            
-        start_time = None
-        matched_offsets_indices = []
-        for sw in scene_words:
-            found = False
-            for j in range(current_offset_idx, min(current_offset_idx + 100, num_offsets)):
-                if cleaned_offsets[j] == sw:
-                    matched_offsets_indices.append(j)
-                    current_offset_idx = j + 1
-                    found = True
-                    break
-            if not found:
-                if current_offset_idx < num_offsets:
-                    matched_offsets_indices.append(current_offset_idx)
-                    current_offset_idx += 1
-                    
-        if matched_offsets_indices:
-            start_time = word_offsets[matched_offsets_indices[0]]["start"]
-            last_w = word_offsets[matched_offsets_indices[-1]]
-            end_time = last_w["start"] + last_w["duration"]
-            word_times = [word_offsets[idx]["start"] - start_time for idx in matched_offsets_indices]
-        else:
-            start_time = current_offset_idx / max(1, num_offsets) * total_duration
-            end_time = (current_offset_idx + len(scene_words)) / max(1, num_offsets) * total_duration
-            word_times = [0.0] * len(scene_words)
-            
-        scene_timings.append({
-            "start": start_time,
-            "end": end_time,
-            "word_times": word_times
-        })
-        
-    # Calibrate starts/ends sequentially to guarantee absolute coverage
-    if scene_timings:
-        scene_timings[0]["start"] = 0.0
-        for i in range(1, len(scene_timings)):
-            prev_end = scene_timings[i-1]["end"]
-            scene_timings[i]["start"] = prev_end
-            if scene_timings[i]["end"] <= prev_end:
-                scene_timings[i]["end"] = prev_end + 3.0
-        scene_timings[-1]["end"] = total_duration
-        
-    for item in scene_timings:
-        item["duration"] = max(0.1, item["end"] - item["start"])
-        
-    return scene_timings
+    """Align the whole narration once, then partition it into contiguous scenes."""
+    if not scenes:
+        return []
+    from difflib import SequenceMatcher
+    import numpy as np
+
+    def tokens(text):
+        return re.findall(r"[a-z0-9]+", str(text).lower())
+
+    counts = [len(tokens(scene.get("narration", ""))) for scene in scenes]
+    script_words = [word for scene in scenes for word in tokens(scene.get("narration", ""))]
+    spoken, starts = [], []
+    for offset in word_offsets:
+        words = tokens(offset.get("word", ""))
+        for i, word in enumerate(words):
+            spoken.append(word)
+            starts.append(float(offset["start"]) + i * float(offset.get("duration", 0)) / len(words))
+    anchors = {0: 0.0, len(script_words): float(total_duration)}
+    if script_words and spoken:
+        matcher = SequenceMatcher(None, script_words, spoken, autojunk=False)
+        for block in matcher.get_matching_blocks():
+            for i in range(block.size):
+                index = block.a + i
+                if index:
+                    anchors[index] = min(total_duration, max(0.0, starts[block.b + i]))
+    positions = sorted(anchors)
+    values = np.maximum.accumulate([anchors[index] for index in positions])
+    boundaries = [0.0]
+    count = 0
+    for words in counts[:-1]:
+        count += words
+        boundaries.append(float(np.interp(count, positions, values)) if script_words
+                          else len(boundaries) * total_duration / len(scenes))
+    boundaries.append(float(total_duration))
+    # Reserve a frame for each remaining scene, including malformed legacy plans.
+    minimum = min(1 / 30, total_duration / max(1, len(scenes)))
+    for i in range(1, len(boundaries) - 1):
+        boundaries[i] = min(max(boundaries[i], boundaries[i-1] + minimum),
+                            total_duration - (len(scenes)-i) * minimum)
+    return [{"start": start, "end": end, "duration": end-start,
+             "word_times": [max(0.0, t-start) for t in starts if start <= t < end]}
+            for start, end in zip(boundaries, boundaries[1:])]

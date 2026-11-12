@@ -7,12 +7,18 @@ EDITORIAL OVERRIDE (takes precedence over legacy style/mix instructions below):
 Create an observational science documentary, with real, specific subjects on screen.
 Keep narration VERBATIM, in order, covering the ENTIRE supplied script exactly once.
 Each shot should cover one idea, normally 8-18 spoken words. No fixed scene count.
-Use animation to explain mechanisms and relationships, mixed with real imagery.
+Prioritize a specific real subject in each shot. Use animation to explain mechanisms
+and relationships alongside real imagery. For an animation that benefits from a
+real subject, set media_context=true and supply a concrete image_cue. The editor
+will layer the diagram above a softly blurred photo or video, with a clear subject
+window. Use standalone diagrams when no authentic subject image adds meaning.
+Prefer images for identifying subjects and video for an actual relevant action.
+A new shot must add explanatory information, not repeat the previous label.
 Text is for short labels, captions or a useful number, not a wall of narration.
 Animation data must use one of: flow, transport, comparison, bars, orbit, refraction,
 photo. Use 2-4 short nodes for flow/transport; exactly two for comparison/orbit.
 Each node has label (1-4 words taken from this scene) and icon (particle, leaf, water,
-ocean, rock, sun, planet, cell). Give the animation a concise title. Flow arrows must
+ocean, rock, sun, planet, cell, dna, atom, brain, magnet, telescope, microbe). Give the animation a concise title. Flow arrows must
 follow a relationship actually explained in the narration. Bars need spoken values
 and one shared unit. Refraction illustrates air-to-water light bending only. Photo
 uses a verified image and short subject labels. Do not use animations as measured
@@ -73,9 +79,13 @@ def prepare_scenes(scenes, script, topic):
             kind = 'image'
         # Split long static holds at phrase boundaries. All words remain in order.
         words = text.split()
-        chunks = [words[i:i + 18] for i in range(0, len(words), 18)] if kind == 'image' else [words]
+        chunks = [words[i:i + 18] for i in range(0, len(words), 18)] if (kind == 'image' or len(words) > 30) else [words]
         for chunk in chunks:
-            result.append({**scene, 'narration': ' '.join(chunk), 'visual_type': kind})
+            chunk_text = ' '.join(chunk)
+            chunk_kind = kind
+            if kind == 'animation' and not validate_animation(scene.get('animation'), chunk_text, topic):
+                chunk_kind = 'image'
+            result.append({**scene, 'narration': chunk_text, 'visual_type': chunk_kind})
     if not result:
         raise ValueError('Cannot render an empty scene plan')
     return result

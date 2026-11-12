@@ -5,6 +5,8 @@ import tempfile
 
 
 def generate_audio(text, output_path):
+    import torch
+    torch.set_num_threads(2)
     import numpy as np
     import soundfile as sf
     from kokoro import KPipeline
@@ -17,7 +19,7 @@ def generate_audio(text, output_path):
     sample_rate = 24000
     voice = os.getenv('KOKORO_VOICE', 'am_michael')
     speed = float(os.getenv('KOKORO_SPEED', '0.96'))
-    pipeline = KPipeline(lang_code='b' if voice.startswith('b') else 'a', device='cpu')
+    pipeline = KPipeline(repo_id='hexgrad/Kokoro-82M', lang_code='b' if voice.startswith('b') else 'a', device='cpu')
     parts, offsets = [], []
     samples = 0
     for result in pipeline(text, voice=voice, speed=speed):

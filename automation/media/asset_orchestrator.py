@@ -41,7 +41,7 @@ class AssetOrchestrator:
         self._used_assets.clear()
         self._verification_unavailable = False
         today = datetime.date.today().isoformat()
-        plan_hash = hashlib.sha256(json.dumps([scenes, self.video_generator.provider, self.video_generator.model, self.video_generator.limit, os.getenv("LOCAL_VISUAL_RELEVANCE", ""), "cpu-matching-v1", engine_ready(), "remotion-v1"], sort_keys=True).encode()).hexdigest()
+        plan_hash = hashlib.sha256(json.dumps([scenes, self.video_generator.provider, self.video_generator.model, self.video_generator.limit, os.getenv("LOCAL_VISUAL_RELEVANCE", ""), "cpu-matching-v1", engine_ready(), "layered-remotion-v2"], sort_keys=True).encode()).hexdigest()
 
         # ── Resume support: check for existing manifest ────────────────────────
         existing = self._find_existing_manifest(topic, today)
@@ -110,7 +110,8 @@ class AssetOrchestrator:
                 "question_text": scene.get("question_text"),
                 "emphasis_phrase": emphasis_phrase,
                 "bar_data": scene.get("bar_data"),
-                "animation": scene.get("animation")
+                "animation": scene.get("animation"),
+                "media_context": scene.get("media_context") is True
             }
 
             if visual_type == 'animation':
@@ -125,6 +126,21 @@ class AssetOrchestrator:
                         else:
                             spec = None
                     if spec:
+                        if scene_entry['media_context'] and spec['template'] != 'photo':
+                            # Bounded search. Context media must pass the same relevance gate.
+                            paths = stock_media.fetch_real_videos(image_cue, 1, job_dir,
+                                f'context_{idx}', portrait=(aspect_ratio == '9:16'))
+                            context = self._pick_relevant_asset(paths, narration)
+                            if not context:
+                                paths = stock_media.fetch_real_photos(image_cue, 1, job_dir,
+                                    f'context_{idx}', portrait=(aspect_ratio == '9:16'))
+                                context = self._pick_relevant_asset(paths, narration)
+                            if context:
+                                scene_entry['context_path'] = context
+                                credit_path = context + '.source.json'
+                                if os.path.isfile(credit_path):
+                                    with open(credit_path, encoding='utf-8') as credit:
+                                        scene_entry['context_source'] = json.load(credit)
                         scene_entry.update(asset_type='animation', animation=spec,
                             source={'provider': 'Remotion', 'kind': 'authored explanatory graphic'})
                         manifest['scenes'].append(scene_entry)
@@ -161,7 +177,7 @@ class AssetOrchestrator:
             # are official APIs (not scraping), so this doesn't add DDG rate-limit risk.
             # Skipped entirely (falls through to the image fetch below) when no API key
             # is configured, or once the per-job budget is used up.
-            if (visual_type == "image" and stock_media.has_stock_api_keys()
+            if (visual_type == "image" and idx % 3 != 1 and stock_media.has_stock_api_keys()
                     and stock_video_count < MAX_STOCK_VIDEO_PER_JOB):
                 print(f"[AssetOrchestrator] Scene {idx}: trying real stock-video b-roll for '{image_cue}'...")
                 video_candidates = stock_media.fetch_real_videos(

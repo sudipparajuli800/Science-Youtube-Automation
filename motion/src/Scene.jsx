@@ -16,6 +16,15 @@ function Icon({kind='particle', x=0, y=0, size=100, color=teal}) {
   })}</>;
   else if (kind === 'planet') art = <><circle cx="50" cy="50" r="38"/><path d="M15 35Q47 21 83 40M13 65Q57 82 86 60M50 12Q27 50 50 88"/></>;
   else if (kind === 'cell') art = <><ellipse cx="50" cy="50" rx="43" ry="34"/><ellipse cx="48" cy="49" rx="12" ry="10"/><path d="M21 40Q30 28 35 39M61 67Q78 71 79 58M63 28Q76 25 80 38"/></>;
+  else if (kind === 'dna') art = <>{Array.from({length:7},(_,i)=>{
+    const y=10+i*13, x=50+30*Math.sin(i*Math.PI/3);
+    return <line key={i} x1={x} y1={y} x2={100-x} y2={y}/>;
+  })}<path d="M50 5C100 25 0 70 50 95M50 5C0 25 100 70 50 95"/></>;
+  else if (kind === 'atom') art = <><circle cx="50" cy="50" r="6"/>{[0,60,120].map(a=><ellipse key={a} cx="50" cy="50" rx="43" ry="17" transform={`rotate(${a} 50 50)`}/>)}</>;
+  else if (kind === 'brain') art = <><path d="M49 15C33 0 15 14 19 30C0 39 6 59 17 61C8 81 32 96 49 82ZM51 15C67 0 85 14 81 30C100 39 94 59 83 61C92 81 68 96 51 82Z"/><path d="M22 31Q42 25 37 46M17 61Q37 54 34 73M78 31Q58 25 63 46M83 61Q63 54 66 73"/></>;
+  else if (kind === 'magnet') art = <><path d="M15 15V55A35 35 0 0 0 85 55V15H65V55A15 15 0 0 1 35 55V15ZM15 35H35M65 35H85"/><path d="M40 9L45 2M60 9L55 2"/></>;
+  else if (kind === 'telescope') art = <><path d="M10 32L73 9L86 43L23 66ZM35 62L51 81L74 61M51 81V96M51 81L27 96M51 81L77 96M86 43L96 39L83 5L73 9"/></>;
+  else if (kind === 'microbe') art = <><ellipse cx="50" cy="50" rx="28" ry="35"/><path d="M50 5V15M50 85V95M10 50H22M78 50H90M20 20L29 29M80 80L71 71M80 20L71 29M20 80L29 71"/><circle cx="42" cy="39" r="5"/><circle cx="59" cy="57" r="7"/></>;
   else art = <>{[[23,29,8],[57,17,6],[79,42,9],[44,54,10],[16,72,5],[65,81,7]].map(([cx,cy,r],i)=><circle key={i} cx={cx} cy={cy} r={r}/>)}</>;
   return <g transform={`translate(${x-size/2},${y-size/2}) scale(${size/100})`} fill="none" stroke={color} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">{art}</g>;
 }
@@ -120,13 +129,14 @@ function Refraction({f,frames,w,h}) {
 
 export function Scene({spec,frames,font,boldFont,image,cues=[]}) {
   const f=useCurrentFrame(), {width,height,fps}=useVideoConfig();
-  const portrait=height>width, w=portrait?1000:1600,h=portrait?760:650;
+  const compact=width/height<1.4 && height/width<1.4;
+  const portrait=height>width || compact, w=portrait?1000:1600,h=portrait?760:650;
   const common={spec,f,fps,frames,w,h,portrait,cues};
   const photo=spec.template==='photo' && image;
   return <AbsoluteFill style={{background:'#101c28',fontFamily:'Barlow',color:ink,overflow:'hidden'}}>
     <style>{`@font-face{font-family:Barlow;src:url(data:font/ttf;base64,${font})}@font-face{font-family:Barlow;src:url(data:font/ttf;base64,${boldFont});font-weight:700}`}</style>
-    <div style={{position:'absolute',top:'6.5%',left:'8%',fontSize:portrait?28:25,letterSpacing:4,color:teal}}>SCIENCE / EXPLAINED</div>
-    <div style={{position:'absolute',top:'10%',left:'8%',width:'84%',fontWeight:700,fontSize:portrait?72:64,lineHeight:1.08,opacity:interpolate(f,[0,12],[0,1],clamp)}}>{spec.title}</div>
+    <div style={{position:'absolute',top:compact?'3%':'6.5%',left:'8%',fontSize:compact?22:portrait?28:25,letterSpacing:4,color:teal}}>SCIENCE / EXPLAINED</div>
+    <div style={{position:'absolute',top:'10%',left:'8%',width:'84%',fontWeight:700,fontSize:compact?48:portrait?72:64,lineHeight:1.08,opacity:interpolate(f,[0,12],[0,1],clamp)}}>{spec.title}</div>
     {photo?<div style={{position:'absolute',top:'26%',left:'8%',width:'84%',height:'38%',borderRadius:24,overflow:'hidden'}}>
       <Img src={image} style={{width:'100%',height:'100%',objectFit:'cover',transform:`scale(${1+.045*f/frames})`}}/>
       <div style={{position:'absolute',inset:0,background:'linear-gradient(transparent 35%,rgba(8,20,29,.9))'}}/>
