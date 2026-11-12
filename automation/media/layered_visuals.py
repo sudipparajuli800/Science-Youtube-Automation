@@ -24,7 +24,7 @@ def render_explainer(scene, duration, size, word_offsets, start):
     portrait = size[1] > size[0]
     panel_size = (1080, 960) if portrait else (900, 900)
     path = render_animation(scene['animation'], duration, *panel_size,
-                            word_offsets=word_offsets, scene_start=start, overlay=True)
+                            word_offsets=word_offsets, scene_start=start, overlay=True, centered=not portrait)
     scene['rendered_asset_path'] = context
     if context.lower().endswith(('.mp4', '.mov', '.webm', '.mkv', '.avi')):
         source = VideoFileClip(context).without_audio()
@@ -49,7 +49,7 @@ def render_explainer(scene, duration, size, word_offsets, start):
     panel = panel.crop(y2=int(panel.h * .78))
     panel = panel.resize(width=1020 if portrait else 820)
     panel = panel.fx(vfx.mask_color, color=[0, 0, 0], thr=18, s=2)
-    panel = panel.set_position((30, 650) if portrait else (1050, 100))
+    panel = panel.set_position((30, 650) if portrait else ((width-panel.w)/2, (height-panel.h)/2))
     result = CompositeVideoClip([background, panel], size=size).set_duration(duration)
     close_composite = result.close
 

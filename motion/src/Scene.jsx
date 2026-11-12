@@ -42,9 +42,9 @@ function Label({text, x, y, size=38, anchor='middle', color=ink}) {
   </text>;
 }
 
-function Flow({spec, f, fps, frames, w, h, portrait, cues=[]}) {
+function Flow({spec, f, fps, frames, w, h, portrait, cues=[], centered=false}) {
   const nodes=spec.nodes, transport=spec.template==='transport';
-  const positions=nodes.map((_,i)=>portrait?{x:235,y:(i+.5)*h/nodes.length}:{x:(i+.5)*w/nodes.length,y:h*.43});
+  const positions=nodes.map((_,i)=>portrait?{x:centered?340:235,y:(i+.5)*h/nodes.length}:{x:(i+.5)*w/nodes.length,y:h*.43});
   return <>
     <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 1L8 5L0 9" fill="none" stroke={teal} strokeWidth="1.5"/></marker></defs>
     {positions.slice(0,-1).map((p,i)=>{
@@ -127,17 +127,17 @@ function Refraction({f,frames,w,h}) {
   </>;
 }
 
-export function Scene({spec,frames,font,boldFont,image,cues=[],overlay=false}) {
+export function Scene({spec,frames,font,boldFont,image,cues=[],overlay=false,centered=false}) {
   const f=useCurrentFrame(), {width,height,fps}=useVideoConfig();
   const compact=width/height<1.4 && height/width<1.4;
   const portrait=height>width || compact, w=portrait?1000:1600,h=portrait?760:650;
-  const common={spec,f,fps,frames,w,h,portrait,cues};
+  const common={spec,f,fps,frames,w,h,portrait,cues,centered};
   const photo=spec.template==='photo' && image;
   return <AbsoluteFill style={{background:overlay?'#000000':'#101c28',fontFamily:'Barlow',color:ink,overflow:'hidden'}}>
     <style>{`@font-face{font-family:Barlow;src:url(data:font/ttf;base64,${font})}@font-face{font-family:Barlow;src:url(data:font/ttf;base64,${boldFont});font-weight:700}`}</style>
     {overlay && <style>{`svg [fill="#192f3c"]{fill:none;stroke:none}svg text{paint-order:stroke;stroke:#000;stroke-width:2px;stroke-linejoin:round}svg{filter:drop-shadow(0 2px 3px #000)}`}</style>}
     {!overlay && <div style={{position:'absolute',top:compact?'3%':'6.5%',left:'8%',fontSize:compact?22:portrait?28:25,letterSpacing:4,color:teal}}>SCIENCE / EXPLAINED</div>}
-    <div style={{position:'absolute',top:'10%',left:'8%',width:'84%',fontWeight:700,fontSize:compact?54:portrait?72:64,lineHeight:1.08,textShadow:overlay?'0 2px 6px #000':undefined,transform:`translateY(${interpolate(f,[0,16],[12,0],clamp)}px)`,opacity:interpolate(f,[0,12],[0,1],clamp)}}>{spec.title}</div>
+    <div style={{position:'absolute',top:'10%',left:'8%',width:'84%',textAlign:centered?'center':'left',fontWeight:700,fontSize:compact?54:portrait?72:64,lineHeight:1.08,textShadow:overlay?'0 2px 6px #000':undefined,transform:`translateY(${interpolate(f,[0,16],[12,0],clamp)}px)`,opacity:interpolate(f,[0,12],[0,1],clamp)}}>{spec.title}</div>
     {photo?<div style={{position:'absolute',top:'26%',left:'8%',width:'84%',height:'38%',borderRadius:24,overflow:'hidden'}}>
       <Img src={image} style={{width:'100%',height:'100%',objectFit:'cover',transform:`scale(${1+.045*f/frames})`}}/>
       <div style={{position:'absolute',inset:0,background:'linear-gradient(transparent 35%,rgba(8,20,29,.9))'}}/>
@@ -149,6 +149,6 @@ export function Scene({spec,frames,font,boldFont,image,cues=[],overlay=false}) {
       {spec.template==='orbit'&&<Orbit {...common}/>}
       {spec.template==='refraction'&&<Refraction {...common}/>}
     </svg>}
-    <div style={{position:'absolute',top:portrait?'65.5%':'73%',left:'8%',fontSize:portrait?25:23,color:muted}}>{spec.template==='bars'?'Shared scale · zero baseline':photo?'Documentary image':'Schematic · not to scale'}</div>
+    <div style={{position:'absolute',top:portrait?'65.5%':'73%',left:'8%',width:'84%',textAlign:centered?'center':'left',fontSize:portrait?25:23,color:muted}}>{spec.template==='bars'?'Shared scale · zero baseline':photo?'Documentary image':'Schematic · not to scale'}</div>
   </AbsoluteFill>;
 }
