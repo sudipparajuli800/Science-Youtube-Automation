@@ -48,6 +48,16 @@ class VisionFallbackTests(unittest.TestCase):
             self.assertTrue(vr.is_visually_relevant(self.path, 'dinosaur eggs', strict=True))
             self.assertEqual(local.call_args.args[1], 'dinosaur eggs')
 
+    def test_diagram_context_checks_the_visible_subject(self):
+        narration = 'The enzyme catalyzes a reaction inside the cell.'
+        with patch.object(vr, '_check_gemini', return_value=None) as vision, \
+             patch.object(vr, '_check_groq', return_value=None), \
+             patch('automation.media.local_relevance.check_local', return_value=True) as local:
+            self.assertTrue(vr.is_visually_relevant(
+                self.path, narration, strict=True, visual_subject='laboratory microscope'))
+        self.assertIn(narration, vision.call_args.args[1])
+        self.assertEqual(local.call_args.args[1], 'laboratory microscope')
+
     def test_key_rotation_and_circuit_breaker(self):
         failed = Mock()
         failed.models.generate_content.side_effect = RuntimeError('402 RESOURCE_EXHAUSTED')

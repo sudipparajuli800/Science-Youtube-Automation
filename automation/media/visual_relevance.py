@@ -100,7 +100,7 @@ def _extract_frame_if_video(path: str) -> str:
         return None
 
 
-def is_visually_relevant(asset_path: str, description: str, strict: bool = False) -> bool:
+def is_visually_relevant(asset_path: str, description: str, strict: bool = False, visual_subject: str = None) -> bool:
     """
     Returns True if the image (or video's mid-frame) plausibly depicts `description`.
     Strict mode rejects missing assets and raises when all vision providers fail.
@@ -148,12 +148,24 @@ def is_visually_relevant(asset_path: str, description: str, strict: bool = False
         "Answer with exactly one word: YES or NO."
     )
 
+    if visual_subject:
+        subject = re.sub(r'\*', '', visual_subject).strip()[:120]
+        prompt = (
+            f'The requested visible subject is "{subject}". '
+            f'This shot will be documentary background behind an explanatory schematic. '
+            f'The accompanying narration is "{clean_desc}". '
+            f'Does this image accurately show that visible subject and provide relevant context? '
+            f'{strictness} Answer with exactly one word: YES or NO.'
+        )
+    else:
+        subject = clean_desc
+
     for check in (_check_gemini, _check_groq):
         verdict = check(img_bytes, prompt)
         if verdict is not None:
             return verdict
     from .local_relevance import check_local
-    verdict = check_local(img_bytes, clean_desc)
+    verdict = check_local(img_bytes, subject)
     if verdict is not None:
         return verdict
     if strict:

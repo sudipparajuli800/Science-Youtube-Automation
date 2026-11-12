@@ -41,7 +41,7 @@ class AssetOrchestrator:
         self._used_assets.clear()
         self._verification_unavailable = False
         today = datetime.date.today().isoformat()
-        plan_hash = hashlib.sha256(json.dumps([scenes, self.video_generator.provider, self.video_generator.model, self.video_generator.limit, os.getenv("LOCAL_VISUAL_RELEVANCE", ""), "cpu-matching-v1", engine_ready(), "structured-context-v3"], sort_keys=True).encode()).hexdigest()
+        plan_hash = hashlib.sha256(json.dumps([scenes, self.video_generator.provider, self.video_generator.model, self.video_generator.limit, os.getenv("LOCAL_VISUAL_RELEVANCE", ""), "cpu-matching-v1", engine_ready(), "structured-context-v4"], sort_keys=True).encode()).hexdigest()
 
         # ── Resume support: check for existing manifest ────────────────────────
         existing = self._find_existing_manifest(topic, today)
@@ -131,11 +131,11 @@ class AssetOrchestrator:
                             # Bounded search. Context media must pass the same relevance gate.
                             paths = stock_media.fetch_real_videos(image_cue, 1, job_dir,
                                 f'context_{idx}', portrait=(aspect_ratio == '9:16'))
-                            context = self._pick_relevant_asset(paths, narration)
+                            context = self._pick_relevant_asset(paths, narration, visual_subject=image_cue)
                             if not context:
                                 paths = stock_media.fetch_real_photos(image_cue, 1, job_dir,
                                     f'context_{idx}', portrait=(aspect_ratio == '9:16'))
-                                context = self._pick_relevant_asset(paths, narration)
+                                context = self._pick_relevant_asset(paths, narration, visual_subject=image_cue)
                             if context:
                                 scene_entry['context_path'] = context
                                 credit_path = context + '.source.json'
@@ -301,7 +301,7 @@ class AssetOrchestrator:
 
     # ── Internals ──────────────────────────────────────────────────────────────
 
-    def _pick_relevant_asset(self, candidates: List[str], description: str) -> str | None:
+    def _pick_relevant_asset(self, candidates: List[str], description: str, visual_subject=None) -> str | None:
         """
         Returns the first candidate (image or video path) that an AI relevance check
         confirms plausibly matches `description` (the scene's actual narration —
@@ -320,7 +320,8 @@ class AssetOrchestrator:
             if digest in self._used_assets:
                 continue
             try:
-                relevant = visual_relevance.is_visually_relevant(path, description, strict=True)
+                options = {'visual_subject': visual_subject} if visual_subject else {}
+                relevant = visual_relevance.is_visually_relevant(path, description, strict=True, **options)
             except visual_relevance.VerificationUnavailable:
                 self._verification_unavailable = True
                 print('[AssetOrchestrator] Remote vision unavailable: using labeled script-summary cards.')
