@@ -99,7 +99,7 @@ class ScriptWriter:
             try:
                 from groq import Groq
                 for k in self.groq_api_keys:
-                    gc = Groq(api_key=k)
+                    gc = Groq(api_key=k, timeout=45.0, max_retries=0)
                     class MockModerations:
                         def create(self, *args, **kwargs):
                             pass
@@ -125,7 +125,7 @@ class ScriptWriter:
             and ("model" in err_msg_lower or "not_found" in err_msg_lower)
         ) or "no longer available" in err_msg_lower or "decommissioned" in err_msg_lower
 
-    def _call_with_retry(self, prompt: str, max_retries: int = 2) -> str:
+    def _call_with_retry(self, prompt: str, max_retries: int = 2, json_output: bool = False) -> str:
         """Calls Gemini rotating through keys, falling back to Groq only if all fail or hit quota."""
         if not self.clients:
             print("WARNING: No Gemini clients available. Trying Groq immediately...")
@@ -144,6 +144,7 @@ class ScriptWriter:
                     response = client.models.generate_content(
                         model=model_id,
                         contents=prompt,
+                        config=types.GenerateContentConfig(response_mime_type="application/json") if json_output else None,
                         safety_settings=[
                             types.SafetySetting(category='HARM_CATEGORY_HATE_SPEECH', threshold='BLOCK_NONE'),
                             types.SafetySetting(category='HARM_CATEGORY_HARASSMENT', threshold='BLOCK_NONE'),
@@ -193,13 +194,22 @@ class ScriptWriter:
                     model_id = self.groq_model_candidates[model_idx]
                     try:
                         groq_client.moderations.create(input=prompt)
+                        options = {}
+                        if json_output:
+                            options["response_format"] = {"type": "json_object"}
+                        if model_id.startswith(("openai/gpt-oss-", "qwen/qwen3.")):
+                            options["reasoning_effort"] = "low"
                         chat_completion = groq_client.chat.completions.create(
                             messages=[{"role": "user", "content": prompt}],
                             model=model_id,
                             max_tokens=4096,
                             user="science-automation",
+                            **options,
                         )
-                        msg = chat_completion.choices[0].message
+                        choice = chat_completion.choices[0]
+                        if json_output and choice.finish_reason == "length":
+                            raise RuntimeError("Structured response exceeded the output budget")
+                        msg = choice.message
                         refusal = getattr(msg, 'refusal', None)
                         if refusal:
                             print(f"Groq Key {client_idx+1} refused: {refusal}")
@@ -208,6 +218,7 @@ class ScriptWriter:
                         if result:
                             self.groq_model_id = model_id
                             return result
+                        raise RuntimeError("Model returned empty content")
                     except Exception as groq_err:
                         err_msg = str(groq_err).lower()
                         is_quota_error = "quota" in err_msg or "429" in err_msg or "exhausted" in err_msg
@@ -399,7 +410,7 @@ thumbnail_bg_query and thumbnail_subject_query. Match the actual topic.
 Script: {script}
 """
         for attempt in range(2):
-            raw = self._call_with_retry(DIRECTOR_BRIEF + prompt)
+            raw = self._call_with_retry(DIRECTOR_BRIEF + prompt, json_output=True)
             try:
                 data = json.loads(self.clean_json_response(raw))
                 if isinstance(data, list):
@@ -416,7 +427,7 @@ Script: {script}
                     self.last_thumbnail_data.update(data['thumbnail_data'])
                 return prepare_scenes(plan, script, topic)
             except (ValueError, TypeError) as error:
-                print(f"[Director] Invalid scene JSON ({type(error).__name__}); retrying.")
+                print(f"[Director] Invalid scene plan: {error}; response_chars={len(raw)}. Retrying.")
         from ..media.visual_quality import VisualQualityHold
         raise VisualQualityHold(
             "The director could not produce a valid scene plan preserving the narration. "

@@ -54,7 +54,7 @@ class DirectorJsonRegressionTests(unittest.TestCase):
         bad, groq = Mock(), Mock()
         bad.models.generate_content.side_effect = RuntimeError('429 quota exceeded')
         groq.chat.completions.create.return_value.choices = [
-            SimpleNamespace(message=SimpleNamespace(content='ready', refusal=None))]
+            SimpleNamespace(finish_reason='stop', message=SimpleNamespace(content='ready', refusal=None))]
         self.writer.clients = [bad]
         self.writer.model_candidates, self.writer.model_id = ['test-model'], 'test-model'
         self.writer.groq_clients = [groq]
@@ -62,6 +62,33 @@ class DirectorJsonRegressionTests(unittest.TestCase):
         self.assertEqual(self.writer._call_with_retry('first'), 'ready')
         self.assertEqual(self.writer._call_with_retry('second'), 'ready')
         self.assertEqual(bad.models.generate_content.call_count, 1)
+
+    def test_groq_json_mode_and_low_reasoning_are_requested(self):
+        groq = Mock()
+        groq.chat.completions.create.return_value.choices = [
+            SimpleNamespace(finish_reason='stop', message=SimpleNamespace(
+                content=json.dumps(self.data), refusal=None))]
+        self.writer.clients = []
+        self.writer.groq_clients = [groq]
+        self.writer.groq_model_candidates = ['openai/gpt-oss-120b']
+        self.writer.groq_model_id = 'openai/gpt-oss-120b'
+        self.assertEqual(json.loads(self.writer._call_with_retry('Return JSON', json_output=True)), self.data)
+        request = groq.chat.completions.create.call_args.kwargs
+        self.assertEqual(request['response_format'], {'type': 'json_object'})
+        self.assertEqual(request['reasoning_effort'], 'low')
+
+    def test_empty_groq_output_cannot_loop_forever(self):
+        from automation.content.script_writer import LLM_FAILURE_SENTINEL
+        groq = Mock()
+        groq.chat.completions.create.return_value.choices = [
+            SimpleNamespace(finish_reason='stop', message=SimpleNamespace(content='', refusal=None))]
+        self.writer.clients = []
+        self.writer.groq_clients = [groq]
+        self.writer.groq_model_candidates = ['openai/gpt-oss-120b']
+        self.writer.groq_model_id = 'openai/gpt-oss-120b'
+        with patch('automation.content.script_writer.time.sleep'):
+            self.assertEqual(self.writer._call_with_retry('Write'), LLM_FAILURE_SENTINEL)
+        self.assertEqual(groq.chat.completions.create.call_count, 2)
 
 
 class PublicationStatusRegressionTests(unittest.TestCase):

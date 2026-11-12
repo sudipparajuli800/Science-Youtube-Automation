@@ -77,7 +77,7 @@ class LongDirectorTests(unittest.TestCase):
         from automation.content.script_writer import ScriptWriter
         writer = ScriptWriter.__new__(ScriptWriter)
         script = ' '.join(f'Water moves through channel {i} and carries heat away.' for i in range(45))
-        def response(prompt):
+        def response(prompt, **kwargs):
             batch = prompt.rsplit('Script: ', 1)[1].strip()
             return json.dumps({'scenes': [{'narration': batch, 'visual_type': 'image'}]})
         writer._call_with_retry = Mock(side_effect=response)
