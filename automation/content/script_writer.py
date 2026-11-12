@@ -392,10 +392,24 @@ Return only speech text, without markup, directions, headings, or image cues.
             "hook_phrase": topic[:40], "supporting_fact": "",
             "thumbnail_bg_query": topic, "thumbnail_subject_query": topic,
         }
+        # The program owns narration. The director assigns visuals to fixed IDs.
+        narration_shots = []
+        for shot in prepare_scenes([], script, topic):
+            text = shot['narration']
+            if (narration_shots and len(text.split()) < 6 and
+                    len(narration_shots[-1].split()) + len(text.split()) <= 24):
+                narration_shots[-1] += ' ' + text
+            else:
+                narration_shots.append(text)
+        shot_inputs = [{'scene_id': index, 'narration': text}
+                       for index, text in enumerate(narration_shots)]
         prompt = f"""Plan footage for a science video about {topic}.
 Return JSON only: an object with scenes and thumbnail_data.
-Each scene needs narration (verbatim), visual_type (animation, image, ai_video, kinetic_stat, data_bars),
-image_cue (concrete subject and action), ai_video_prompt (subject/action/camera for illustrations),
+Assign visuals to EVERY supplied scene_id exactly once, in the supplied order.
+Each scene needs scene_id and visual_type (animation, image, ai_video, kinetic_stat, data_bars).
+Do not return or rewrite narration. The program attaches the original narration.
+Use the supplied shot narration to ground every subject, diagram label, and value.
+Also provide image_cue (concrete subject and action), ai_video_prompt (subject/action/camera for illustrations),
 named_entity (optional short label),
 stat_data (null or value/unit/label), bar_data (null or label/value objects).
 Use animation for causal processes, transport, comparisons, orbits and diagrams.
@@ -407,7 +421,7 @@ Most mechanisms should be explained visually; mix in real images when useful.
 No arbitrary statistics, decorative full-screen narration, or fabricated simulations.
 thumbnail_data needs hook_phrase (up to 4 accurate words), supporting_fact,
 thumbnail_bg_query and thumbnail_subject_query. Match the actual topic.
-Script: {script}
+Narration shots JSON: {json.dumps(shot_inputs, ensure_ascii=False)}
 """
         for attempt in range(2):
             raw = self._call_with_retry(DIRECTOR_BRIEF + prompt, json_output=True)
@@ -421,8 +435,16 @@ Script: {script}
                     plan = None
                 if not isinstance(plan, list) or not plan or not all(isinstance(scene, dict) for scene in plan):
                     raise ValueError("Missing scene list")
-                if _words(' '.join(str(scene.get('narration', '')) for scene in plan)) != _words(script):
-                    raise ValueError("Scene narration differs from the supplied script")
+                if all('scene_id' in scene for scene in plan):
+                    ids = [scene['scene_id'] for scene in plan]
+                    if (any(type(index) is not int for index in ids) or
+                            sorted(ids) != list(range(len(narration_shots)))):
+                        raise ValueError("Scene IDs are missing, duplicated, or unknown")
+                    by_id = {scene['scene_id']: scene for scene in plan}
+                    plan = [{**by_id[index], 'narration': text}
+                            for index, text in enumerate(narration_shots)]
+                elif _words(' '.join(str(scene.get('narration', '')) for scene in plan)) != _words(script):
+                    raise ValueError("Legacy scene narration differs from the supplied script")
                 if isinstance(data, dict) and isinstance(data.get('thumbnail_data'), dict):
                     self.last_thumbnail_data.update(data['thumbnail_data'])
                 return prepare_scenes(plan, script, topic)

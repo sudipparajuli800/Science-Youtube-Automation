@@ -61,6 +61,7 @@ jobs:
       PIP_DEFAULT_TIMEOUT: "30"
       PIP_RETRIES: "2"
       OMP_NUM_THREADS: "2"
+      PYTHONUNBUFFERED: "1"
       ANIMATION_ENABLED: ${{ vars.ANIMATION_ENABLED || 'true' }}
     steps:
       - uses: actions/checkout@v3

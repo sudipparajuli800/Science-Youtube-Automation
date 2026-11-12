@@ -63,6 +63,22 @@ class DirectorJsonRegressionTests(unittest.TestCase):
         self.assertEqual(self.writer._call_with_retry('second'), 'ready')
         self.assertEqual(bad.models.generate_content.call_count, 1)
 
+    def test_numbered_shots_attach_original_narration_even_if_model_rewrites_it(self):
+        self.scene['scene_id'] = 0
+        self.scene['narration'] = 'A model paraphrase that must not be spoken.'
+        self.writer._call_with_retry = Mock(return_value=json.dumps(self.data))
+        scenes = self.writer.generate_visual_scenes('Evaporation', self.narration)
+        self.assertEqual(scenes[0]['narration'], self.narration)
+        self.assertEqual(scenes[0]['animation'], self.scene['animation'])
+        self.assertEqual(scenes[0]['image_cue'], self.scene['image_cue'])
+
+    def test_missing_or_duplicate_shot_ids_stop_before_search(self):
+        for ids in [[1], [0, 0], [False]]:
+            self.data['scenes'] = [{**self.scene, 'scene_id': index} for index in ids]
+            self.writer._call_with_retry = Mock(return_value=json.dumps(self.data))
+            with self.assertRaises(VisualQualityHold):
+                self.writer.generate_visual_scenes('Evaporation', self.narration)
+
     def test_groq_json_mode_and_low_reasoning_are_requested(self):
         groq = Mock()
         groq.chat.completions.create.return_value.choices = [
