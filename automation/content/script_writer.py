@@ -377,9 +377,9 @@ Return only speech text, without markup, directions, headings, or image cues.
             print(f"Keyword Gen Error: {e}")
             return [f"{extra_context} science background"] * 10
 
-    def generate_visual_scenes(self, topic: str, script: str, is_long_form: bool = False) -> List[Dict]:
+    def generate_visual_scenes(self, topic: str, script: str, is_long_form: bool = False, *, repair_shots=None) -> List[Dict]:
         # Keep each director response within the provider's output budget.
-        if len(script.split()) > 180:
+        if repair_shots is None and len(script.split()) > 180:
             sentences = re.split(r'(?<=[.!?])\s+', script.strip())
             batches, current = [], []
             for sentence in sentences:
@@ -404,7 +404,9 @@ Return only speech text, without markup, directions, headings, or image cues.
         }
         # The program owns narration. The director assigns visuals to fixed IDs.
         narration_shots = []
-        if is_long_form:
+        if repair_shots is not None:
+            narration_shots = list(repair_shots)
+        elif is_long_form:
             pending = []
             for sentence in re.split(r'(?<=[.!?])\s+', script.strip()):
                 pending.extend(sentence.split())
@@ -453,6 +455,16 @@ No arbitrary statistics, decorative full-screen narration, or fabricated simulat
 thumbnail_data needs hook_phrase (up to 4 accurate words), supporting_fact,
 thumbnail_bg_query and thumbnail_subject_query. Match the actual topic.
 Narration shots JSON: {json.dumps(shot_inputs, ensure_ascii=False)}
+"""
+        if repair_shots is not None:
+            prompt += """
+STOCK-UNAVAILABLE REPAIR: Photos and clips for these exact shots were searched
+and rejected. Author a useful standalone schematic for the stated mechanism,
+comparison, or numeric relationship. Choose animation with media_context=false.
+Do not search for a photograph of a graph or a particular experimental result.
+Do not use photo template. Never turn arbitrary nouns into causal arrows.
+If no honest explanatory diagram is supported, return visual_type=image to keep
+that shot held for review. Preserve every supplied scene_id and word ownership.
 """
         for attempt in range(2):
             raw = self._call_with_retry(DIRECTOR_BRIEF + prompt, json_output=True)
@@ -504,6 +516,28 @@ Narration shots JSON: {json.dumps(shot_inputs, ensure_ascii=False)}
         raise VisualQualityHold(
             "The director could not produce a valid scene plan preserving the narration. "
             "Stopped before asset searches instead of repeating one topic query across the video.")
+
+    def repair_missing_visuals(self, topic, shots):
+        """One bounded director pass over missing media, retaining exact shot boundaries."""
+        from ..media.visual_quality import VisualQualityHold
+        repaired = []
+        thumbnail = dict(getattr(self, 'last_thumbnail_data', {}))
+        try:
+            for start in range(0, len(shots), 4):
+                batch = shots[start:start + 4]
+                try:
+                    plan = self.generate_visual_scenes(topic, ' '.join(batch),
+                        is_long_form=True, repair_shots=batch)
+                    if len(plan) != len(batch) or any(
+                            scene['narration'] != text for scene, text in zip(plan, batch)):
+                        raise VisualQualityHold('Repair changed shot boundaries')
+                    repaired.extend(plan)
+                except VisualQualityHold as error:
+                    print(f'[Director] Missing-visual repair unavailable: {error}')
+                    repaired.extend({'narration': text} for text in batch)
+        finally:
+            self.last_thumbnail_data = thumbnail
+        return repaired
 
     def generate_shorts_visual_scenes(self, topic: str, script: str) -> List[Dict]:
         return self.generate_visual_scenes(topic, script)

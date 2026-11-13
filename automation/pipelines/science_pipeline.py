@@ -292,6 +292,8 @@ class SciencePipeline(BasePipeline):
             from ..media.asset_orchestrator import AssetOrchestrator
             orchestrator = AssetOrchestrator(hf_token=os.getenv("HF_TOKEN", ""))
             asset_manifest = orchestrator.fetch_all(scenes_data, topic)
+            asset_manifest = orchestrator.repair_missing_visuals(
+                asset_manifest, self.script_writer.repair_missing_visuals)
             self._video_asset_types = [s.get("asset_type") for s in asset_manifest["scenes"]]
             check_visual_quality(asset_manifest, is_test=is_test)
             print(f"Asset manifest ready: job_id={asset_manifest.get('job_id')}, "

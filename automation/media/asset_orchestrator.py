@@ -257,6 +257,31 @@ class AssetOrchestrator:
               f"{sum(1 for s in manifest['scenes'] if s['asset_type']=='image')} image background(s).")
         return manifest
 
+    def repair_missing_visuals(self, manifest, planner):
+        """Replace failed stock shots only with validated, narration-grounded diagrams."""
+        missing = [scene for scene in manifest['scenes']
+                   if scene.get('visual_type') == 'explainer_card']
+        if not missing or not engine_ready():
+            return manifest
+        plans = planner(manifest['topic'], [scene['narration'] for scene in missing])
+        if len(plans) != len(missing):
+            raise ValueError('Repair must preserve every missing shot')
+        count = 0
+        for scene, plan in zip(missing, plans):
+            if plan.get('narration') != scene['narration']:
+                raise ValueError('Repair must preserve narration and order')
+            spec = validate_animation(plan.get('animation'), scene['narration'], manifest['topic'])
+            if plan.get('visual_type') != 'animation' or not spec or spec['template'] == 'photo':
+                continue
+            scene.update(visual_type='animation', asset_type='animation', asset_path=None,
+                         animation=spec, media_context=False,
+                         source={'provider': 'Remotion', 'kind': 'authored explanatory graphic'})
+            count += 1
+        manifest['repair_count'] = count
+        self._save_manifest(manifest)
+        print(f'[AssetOrchestrator] Repaired {count}/{len(missing)} missing visuals with validated diagrams.')
+        return manifest
+
     def _crop_image_to_portrait(self, img_path: str) -> str:
         try:
             from PIL import Image
