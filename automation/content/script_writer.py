@@ -497,10 +497,14 @@ that shot held for review. Preserve every supplied scene_id and word ownership.
                             word_ids = node.get('label_word_ids') if isinstance(node, dict) else None
                             if word_ids is None:
                                 continue
+                            if isinstance(word_ids, list):
+                                word_ids = [int(i) if isinstance(i, str) and i.isdecimal() else i
+                                            for i in word_ids]
                             if (not isinstance(word_ids, list) or not 1 <= len(word_ids) <= 4 or
-                                    any(type(i) is not int or not 0 <= i < len(words) for i in word_ids) or
-                                    word_ids != sorted(set(word_ids))):
-                                raise ValueError("Invalid diagram label word IDs")
+                                    any(type(i) is not int or not 0 <= i < len(words) for i in word_ids)):
+                                raise ValueError(f"Scene {scene['scene_id']}: label_word_ids={word_ids!r}; "
+                                                 f"choose 1-4 IDs from 0 through {len(words)-1}")
+                            word_ids = sorted(set(word_ids))
                             node['label'] = ' '.join(words[i] for i in word_ids).strip('.,;:!?')
                 elif _words(' '.join(str(scene.get('narration', '')) for scene in plan)) != _words(script):
                     raise ValueError("Legacy scene narration differs from the supplied script")
@@ -512,6 +516,7 @@ that shot held for review. Preserve every supplied scene_id and word ownership.
                 return prepared
             except (ValueError, TypeError) as error:
                 print(f"[Director] Invalid scene plan: {error}; response_chars={len(raw)}. Retrying.")
+                prompt += f"\nPrevious response rejected: {error}. Correct that error and return the complete plan.\n"
         from ..media.visual_quality import VisualQualityHold
         raise VisualQualityHold(
             "The director could not produce a valid scene plan preserving the narration. "
