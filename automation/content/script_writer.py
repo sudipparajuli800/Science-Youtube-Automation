@@ -377,7 +377,7 @@ Return only speech text, without markup, directions, headings, or image cues.
             print(f"Keyword Gen Error: {e}")
             return [f"{extra_context} science background"] * 10
 
-    def generate_visual_scenes(self, topic: str, script: str) -> List[Dict]:
+    def generate_visual_scenes(self, topic: str, script: str, is_long_form: bool = False) -> List[Dict]:
         # Keep each director response within the provider's output budget.
         if len(script.split()) > 180:
             sentences = re.split(r'(?<=[.!?])\s+', script.strip())
@@ -393,7 +393,7 @@ Return only speech text, without markup, directions, headings, or image cues.
                 scenes = []
                 first_thumbnail = None
                 for batch in batches:
-                    scenes.extend(self.generate_visual_scenes(topic, batch))
+                    scenes.extend(self.generate_visual_scenes(topic, batch, is_long_form=is_long_form))
                     if first_thumbnail is None:
                         first_thumbnail = dict(self.last_thumbnail_data)
                 self.last_thumbnail_data = first_thumbnail
@@ -404,13 +404,29 @@ Return only speech text, without markup, directions, headings, or image cues.
         }
         # The program owns narration. The director assigns visuals to fixed IDs.
         narration_shots = []
-        for shot in prepare_scenes([], script, topic):
-            text = shot['narration']
-            if (narration_shots and len(text.split()) < 6 and
-                    len(narration_shots[-1].split()) + len(text.split()) <= 24):
-                narration_shots[-1] += ' ' + text
-            else:
-                narration_shots.append(text)
+        if is_long_form:
+            pending = []
+            for sentence in re.split(r'(?<=[.!?])\s+', script.strip()):
+                pending.extend(sentence.split())
+                while len(pending) > 40:
+                    narration_shots.append(' '.join(pending[:36]))
+                    pending = pending[36:]
+                if len(pending) >= 12:
+                    narration_shots.append(' '.join(pending))
+                    pending = []
+            if pending:
+                if narration_shots and len(narration_shots[-1].split()) + len(pending) <= 40:
+                    narration_shots[-1] += ' ' + ' '.join(pending)
+                else:
+                    narration_shots.append(' '.join(pending))
+        else:
+            for shot in prepare_scenes([], script, topic):
+                text = shot['narration']
+                if (narration_shots and len(text.split()) < 6 and
+                        len(narration_shots[-1].split()) + len(text.split()) <= 24):
+                    narration_shots[-1] += ' ' + text
+                else:
+                    narration_shots.append(text)
         shot_inputs = [{'scene_id': index, 'narration': text,
                         'words': {str(i): word for i, word in enumerate(text.split())}}
                        for index, text in enumerate(narration_shots)]

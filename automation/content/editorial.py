@@ -82,7 +82,8 @@ def prepare_scenes(scenes, script, topic):
             kind = 'image'
         # Split long static holds at phrase boundaries. All words remain in order.
         words = text.split()
-        chunks = [words[i:i + 18] for i in range(0, len(words), 18)] if ((kind == 'image' and 'scene_id' not in scene) or len(words) > 30) else [words]
+        word_limit = 40 if 'scene_id' in scene else 30
+        chunks = [words[i:i + 18] for i in range(0, len(words), 18)] if ((kind == 'image' and 'scene_id' not in scene) or len(words) > word_limit) else [words]
         for chunk in chunks:
             chunk_text = ' '.join(chunk)
             chunk_kind = kind

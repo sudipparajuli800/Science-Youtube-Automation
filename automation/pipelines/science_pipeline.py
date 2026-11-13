@@ -284,7 +284,7 @@ class SciencePipeline(BasePipeline):
 
         # 3. Generate Visual Scenes (structured JSON for visual routing)
         print("Generating visual scene classification...")
-        scenes_data = self.script_writer.generate_visual_scenes(topic, script)
+        scenes_data = self.script_writer.generate_visual_scenes(topic, script, is_long_form=True)
 
         # 4. Fetch All Assets via Orchestrator
         asset_manifest = None

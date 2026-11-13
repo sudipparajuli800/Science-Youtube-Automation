@@ -105,6 +105,24 @@ class DirectorJsonRegressionTests(unittest.TestCase):
         with self.assertRaises(VisualQualityHold):
             self.writer.generate_visual_scenes('Evaporation', self.narration)
 
+    def test_long_form_shots_keep_explanatory_sentences_together(self):
+        script = ('A concrete example illustrates the mechanism. '
+                  'Water in the shallow bowl absorbs heat from sunlight and gradually changes into water vapor above the surface. '
+                  'The vapor rises into cooler air, where water molecules can gather into droplets and form a visible cloud.')
+        captured = []
+        def response(prompt, **kwargs):
+            shots = json.loads(prompt.rsplit('Narration shots JSON: ', 1)[1])
+            captured.extend(shots)
+            return json.dumps({'scenes': [
+                {'scene_id': shot['scene_id'], 'visual_type': 'image',
+                 'image_cue': 'sunlight on water in bowl'} for shot in shots]})
+        self.writer._call_with_retry = Mock(side_effect=response)
+        scenes = self.writer.generate_visual_scenes('Water', script, is_long_form=True)
+        self.assertEqual(' '.join(scene['narration'] for scene in scenes), script)
+        self.assertTrue(all(12 <= len(scene['narration'].split()) <= 40 for scene in scenes))
+        self.assertIn('Water in the shallow bowl', scenes[0]['narration'])
+        self.assertEqual(len(scenes), len(captured))
+
     def test_groq_json_mode_and_low_reasoning_are_requested(self):
         groq = Mock()
         groq.chat.completions.create.return_value.choices = [
