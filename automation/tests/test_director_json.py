@@ -102,8 +102,11 @@ class DirectorJsonRegressionTests(unittest.TestCase):
         self.scene['scene_id'] = 0
         self.scene['animation']['nodes'][0]['label_word_ids'] = [99]
         self.writer._call_with_retry = Mock(return_value=json.dumps(self.data))
-        with self.assertRaises(VisualQualityHold):
-            self.writer.generate_visual_scenes('Evaporation', self.narration)
+        scenes = self.writer.generate_visual_scenes('Evaporation', self.narration)
+        self.assertEqual(scenes[0]['visual_type'], 'image')
+        self.assertIsNone(scenes[0].get('animation'))
+        self.assertEqual(scenes[0]['narration'], self.narration)
+        self.assertEqual(scenes[0]['image_cue'], self.scene['image_cue'])
 
     def test_long_form_shots_keep_explanatory_sentences_together(self):
         script = ('A concrete example illustrates the mechanism. '

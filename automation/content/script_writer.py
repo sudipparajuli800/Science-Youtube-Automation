@@ -502,8 +502,11 @@ that shot held for review. Preserve every supplied scene_id and word ownership.
                                             for i in word_ids]
                             if (not isinstance(word_ids, list) or not 1 <= len(word_ids) <= 4 or
                                     any(type(i) is not int or not 0 <= i < len(words) for i in word_ids)):
-                                raise ValueError(f"Scene {scene['scene_id']}: label_word_ids={word_ids!r}; "
-                                                 f"choose 1-4 IDs from 0 through {len(words)-1}")
+                                print(f"[Director] Scene {scene['scene_id']}: rejected diagram label IDs "
+                                      f"{word_ids!r}; using its contextual media plan instead.")
+                                scene['animation'] = None
+                                scene['visual_type'] = 'image'
+                                break
                             word_ids = sorted(set(word_ids))
                             node['label'] = ' '.join(words[i] for i in word_ids).strip('.,;:!?')
                 elif _words(' '.join(str(scene.get('narration', '')) for scene in plan)) != _words(script):
