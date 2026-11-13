@@ -24,3 +24,15 @@ def overlay_headline(value, topic, caption):
     if any(len(word) > 32 for word in candidate.split()):
         candidate = ''
     return candidate or 'A closer look at science'
+
+
+def instagram_caption(value):
+    """Keep complete sentences/words inside Instagram's 2,200-character limit."""
+    text = plain_public_text(value)
+    if len(text) <= 2200:
+        return text
+    prefix = text[:2199]
+    endings = list(re.finditer(r'[.!?](?:\s|$)', prefix))
+    if endings and endings[-1].end() >= 1600:
+        return prefix[:endings[-1].start() + 1].rstrip()
+    return prefix.rsplit(' ', 1)[0].rstrip(' ,;:') + '…'

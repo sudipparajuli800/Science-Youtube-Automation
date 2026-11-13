@@ -45,3 +45,19 @@ class VisualRepairTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.orchestrator().repair_missing_visuals(manifest,
                     Mock(return_value=[{'narration': 'Changed words'}]))
+
+
+class InstagramCaptionTests(unittest.TestCase):
+    def test_short_caption_keeps_meaning_and_removes_markup(self):
+        from automation.content.public_text import instagram_caption
+        self.assertEqual(instagram_caption('A **science** fact.'), 'A science fact.')
+
+    def test_long_caption_ends_on_sentence(self):
+        from automation.content.public_text import instagram_caption
+        caption = instagram_caption('A useful science explanation. ' * 200)
+        self.assertLessEqual(len(caption), 2200)
+        self.assertTrue(caption.endswith('.'))
+
+    def test_long_unbroken_text_stays_inside_limit(self):
+        from automation.content.public_text import instagram_caption
+        self.assertLessEqual(len(instagram_caption('x' * 6000)), 2200)

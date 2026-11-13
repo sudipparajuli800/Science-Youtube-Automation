@@ -6,7 +6,7 @@ import requests
 from google import genai
 from google.genai import types
 from typing import List, Dict
-from ..content.public_text import plain_public_text
+from ..content.public_text import plain_public_text, instagram_caption
 
 class MetaUploader:
     def __init__(self):
@@ -366,7 +366,7 @@ class MetaUploader:
             }
             # The files key name must match Facebook specification, filename should incorporate the locale
             files = {
-                "captions_file": (f"captions.{locale}.srt", plain_public_text(srt_content).encode("utf-8"), "application/x-subrip")
+                "captions_file": (f"captions.{locale}.srt", plain_public_text(srt_content).encode("utf-8"), "text/plain")
             }
             res = requests.post(url, data=payload, files=files)
             if res.json().get("success"):
@@ -403,7 +403,7 @@ class MetaUploader:
                     container_payload = {
                         "media_type": "REELS",
                         "upload_type": "resumable",
-                        "caption": plain_public_text(caption),
+                        "caption": instagram_caption(caption),
                         "access_token": self.access_token
                     }
                     c_res = requests.post(container_url, data=container_payload)
@@ -465,7 +465,7 @@ class MetaUploader:
                 container_payload = {
                     "media_type": "REELS",
                     "video_url": source_url,
-                    "caption": plain_public_text(caption),
+                    "caption": instagram_caption(caption),
                     "access_token": self.access_token
                 }
                 c_res = requests.post(container_url, data=container_payload)
@@ -602,7 +602,7 @@ class MetaUploader:
             container_url = f"https://graph.facebook.com/{self.api_version}/{ig_account_id}/media"
             container_payload = {
                 "image_url": image_url,
-                "caption": plain_public_text(caption),
+                "caption": instagram_caption(caption),
                 "access_token": self.access_token,
             }
             c_res = requests.post(container_url, data=container_payload)
