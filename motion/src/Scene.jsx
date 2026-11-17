@@ -1,14 +1,20 @@
+import {beatState} from './storytelling.mjs';
 import React from 'react';
-import {AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
+import {AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig} from 'remotion';
 
 const ink = '#edf3f0', muted = '#91a8b4', teal = '#8edae0';
 const palette = [teal, '#d8bd83', '#b9d99e', '#aebce4', '#d9a9a0'];
 const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'};
 
-function Icon({kind='particle', x=0, y=0, size=100, color=teal}) {
+function Icon({kind='particle', x=0, y=0, size=100, color=teal, reveal=1}) {
   let art;
   if (kind === 'leaf') art = <><path d="M15 82Q0 8 86 10Q100 86 15 82Z"/><path d="M13 90L71 28M40 63L38 36M52 51L78 54"/></>;
   else if (kind === 'water') art = <><path d="M50 5C40 28 17 44 17 65A33 33 0 0 0 83 65C83 44 60 28 50 5Z"/><path d="M31 64Q31 80 46 81"/></>;
+  else if (kind === 'cloud' || kind === 'rain') art = <><path d="M22 62C2 62 2 35 21 32C18 9 56 2 63 24C88 13 104 52 82 62Z"/>{kind==='rain'&&[28,49,70].map(x=><path key={x} d={`M${x} 75L${x-6} 90`}/>)}</>;
+  else if (kind === 'thermometer') art = <><path d="M37 64V18A13 13 0 0 1 63 18V64A23 23 0 1 1 37 64Z"/><path d="M50 30V74M69 23H83M69 39H78M69 55H83"/><circle cx="50" cy="79" r="7"/></>;
+  else if (kind === 'microscope') art = <><path d="M23 9L48 4L65 47L40 56ZM18 80H80V94H12V80M52 24Q94 33 78 66Q73 77 55 80M19 64H58"/><circle cx="69" cy="34" r="6"/></>;
+  else if (kind === 'heart') art = <><path d="M50 88C28 72 4 53 9 30C13 9 40 9 50 28C60 9 87 9 91 30C96 53 72 72 50 88Z"/><path d="M13 51H32L41 34L52 69L61 47H87"/></>;
+  else if (kind === 'lightning') art = <path d="M56 4L16 56H44L36 96L86 40H56Z"/>;
   else if (kind === 'ocean') art = <>{[25,50,75].map(v=><path key={v} d={`M5 ${v}Q17 ${v-17} 30 ${v}T55 ${v}T80 ${v}T105 ${v}`}/>)}</>;
   else if (kind === 'rock') art = <><path d="M8 65L23 19L67 8L92 40L82 87L31 93Z"/><path d="M23 19L48 48L92 40M48 48L31 93M48 48L67 8"/></>;
   else if (kind === 'sun') art = <><circle cx="50" cy="50" r="23"/>{Array.from({length:8},(_,i)=>{
@@ -26,14 +32,19 @@ function Icon({kind='particle', x=0, y=0, size=100, color=teal}) {
   else if (kind === 'telescope') art = <><path d="M10 32L73 9L86 43L23 66ZM35 62L51 81L74 61M51 81V96M51 81L27 96M51 81L77 96M86 43L96 39L83 5L73 9"/></>;
   else if (kind === 'microbe') art = <><ellipse cx="50" cy="50" rx="28" ry="35"/><path d="M50 5V15M50 85V95M10 50H22M78 50H90M20 20L29 29M80 80L71 71M80 20L71 29M20 80L29 71"/><circle cx="42" cy="39" r="5"/><circle cx="59" cy="57" r="7"/></>;
   else art = <>{[[23,29,8],[57,17,6],[79,42,9],[44,54,10],[16,72,5],[65,81,7]].map(([cx,cy,r],i)=><circle key={i} cx={cx} cy={cy} r={r}/>)}</>;
-  return <g transform={`translate(${x-size/2},${y-size/2}) scale(${size/100})`} fill="none" stroke={color} strokeWidth="4.4" strokeLinecap="round" strokeLinejoin="round">{art}</g>;
+  function trace(element) {
+    if (!React.isValidElement(element)) return element;
+    if (element.type === React.Fragment) return React.cloneElement(element, {}, React.Children.map(element.props.children, trace));
+    return React.cloneElement(element, {pathLength: 1, strokeDasharray: 1, strokeDashoffset: 1-reveal});
+  }
+  return <g transform={`translate(${x-size/2},${y-size/2}) scale(${size/100})`} fill="none" stroke={color} strokeWidth="4.4" strokeLinecap="round" strokeLinejoin="round">{React.Children.map(art, trace)}</g>;
 }
 
-function Label({text, x, y, size=38, anchor='middle', color=ink}) {
+function Label({text, x, y, size=38, anchor='middle', color=ink, maxChars=19}) {
   const words=String(text).split(' '), lines=[];
   let line='';
   for (const word of words) {
-    if ((line+' '+word).trim().length>19 && line) {lines.push(line); line=word;}
+    if ((line+' '+word).trim().length>maxChars && line) {lines.push(line); line=word;}
     else line=(line+' '+word).trim();
   }
   if(line)lines.push(line);
@@ -63,10 +74,10 @@ function Flow({spec, f, fps, frames, w, h, portrait, cues=[], centered=false}) {
       </g>;
     })}
     {nodes.map((node,i)=>{
-      const p=positions[i], entrance=spring({frame:Math.max(0,f-(cues[i] ?? i*frames*.11)),fps,config:{damping:200}});
-      return <g key={i} opacity={entrance} transform={`translate(0,${(1-entrance)*22})`}>
+      const p=positions[i], beat=beatState(f,i,cues,frames,nodes.length,spec.treatment);
+      return <g key={i} opacity={beat.opacity} transform={`translate(${beat.shift},0) rotate(${beat.rotation} ${p.x} ${p.y})`}>
         <circle cx={p.x} cy={p.y} r={portrait?80:66} fill="#192f3c" stroke={palette[i%5]} strokeOpacity=".3" strokeWidth="2"/>
-        <Icon kind={node.icon} x={p.x} y={p.y} size={portrait?140:110} color={palette[i%5]}/>
+        <Icon kind={node.icon} x={p.x} y={p.y} size={portrait?140:110} color={palette[i%5]} reveal={beat.draw}/>
         <Label text={node.label} x={portrait?p.x+150:p.x} y={portrait?p.y-8:p.y+130} anchor={portrait?'start':'middle'} size={portrait?60:42}/>
 
       </g>;
@@ -90,16 +101,54 @@ function Bars({spec,f,frames,w,h,cues=[]}) {
   })}</>;
 }
 
-function Comparison({spec,f,frames,w,h,portrait}) {
+function Comparison({spec,f,frames,w,h,portrait,cues=[]}) {
   return <>{spec.nodes.map((node,i)=>{
     const x=portrait?w*.5:w*(i?.73:.27), y=portrait?h*(i?.73:.24):h*.45;
-    const p=interpolate(f,[i*12,i*12+frames*.32],[0,1],clamp);
-    return <g key={i} opacity={p} transform={`translate(0,${20*(1-p)})`}>
+    const beat=beatState(f,i,cues,frames,2,spec.treatment || 'focus'), p=beat.opacity;
+    return <g key={i} opacity={p} transform={`translate(0,${20*(1-beat.visible)})`}>
       <circle cx={x} cy={y} r="110" stroke={palette[i]} strokeOpacity=".35" fill="#192f3c" strokeWidth="2"/>
-      <Icon kind={node.icon} x={x} y={y} size={145} color={palette[i]}/>
+      <Icon kind={node.icon} x={x} y={y} size={145} color={palette[i]} reveal={beat.draw}/>
       <Label text={node.label} x={x} y={y+158} size="40"/>
     </g>;
   })}<text x={w/2} y={h/2} textAnchor="middle" fill={muted} fontSize="28">COMPARED</text></>;
+}
+
+function Cycle({spec,f,frames,w,h,portrait,cues=[]}) {
+  const nodes=spec.nodes, rx=w*.31, ry=h*.30, cy=h*.43;
+  const positions=nodes.map((_,i)=>{const a=-Math.PI/2+2*Math.PI*i/nodes.length;
+    return {x:w/2+rx*Math.cos(a),y:cy+ry*Math.sin(a)};});
+  return <>
+    <defs><marker id="cycle-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill={teal}/></marker></defs>
+    {positions.map((p,i)=>{
+      const next=positions[(i+1)%nodes.length], beat=beatState(f,i,cues,frames,nodes.length,spec.treatment);
+      const dx=next.x-p.x,dy=next.y-p.y,len=Math.hypot(dx,dy), ux=dx/len,uy=dy/len;
+      const from={x:p.x+ux*78,y:p.y+uy*78},to={x:next.x-ux*85,y:next.y-uy*85};
+      return <g key={i}>
+        <path d={`M${from.x} ${from.y}Q${(from.x+to.x)/2-uy*55} ${(from.y+to.y)/2+ux*55} ${to.x} ${to.y}`}
+          fill="none" stroke={teal} strokeWidth="3.5" pathLength="1" strokeDasharray="1" strokeDashoffset={1-beat.visible}
+          markerEnd={beat.visible===1?'url(#cycle-arrow)':undefined}/>
+        <g opacity={beat.opacity} transform={`translate(${beat.shift},0) rotate(${beat.rotation} ${p.x} ${p.y})`}>
+          <Icon kind={nodes[i].icon} x={p.x} y={p.y} size={portrait?140:120} color={palette[i]} reveal={beat.draw}/>
+          <Label text={nodes[i].label} x={p.x} y={i===0?p.y-95:p.y+100} size={portrait?56:44} maxChars={16}/>
+        </g>
+      </g>;
+    })}
+  </>;
+}
+
+function Layers({spec,f,frames,w,h,portrait,cues=[]}) {
+  const left=w*.08, band=w*(portrait?.36:.44), labelX=w*(portrait?.51:.6);
+  return <>{spec.nodes.map((node,i)=>{
+    const y=70+i*(h*.69/spec.nodes.length), beat=beatState(f,i,cues,frames,spec.nodes.length,spec.treatment || 'draw');
+    return <g key={i} opacity={beat.opacity} transform={`translate(${beat.shift},0)`}>
+      <path d={`M${left} ${y+20}Q${left+band*.45} ${y-20} ${left+band} ${y+20}L${left+band} ${y+88}Q${left+band*.45} ${y+48} ${left} ${y+88}Z`}
+        stroke={palette[i]} strokeWidth="4" fill={palette[i]} fillOpacity={.08*beat.visible}
+        pathLength="1" strokeDasharray="1" strokeDashoffset={1-beat.draw}/>
+      <path d={`M${left+band+20} ${y+50}H${labelX-25}`} stroke={palette[i]} strokeWidth="2"/>
+      <Icon kind={node.icon} x={left+band/2} y={y+53} size={64} color={palette[i]} reveal={beat.draw}/>
+      <Label text={node.label} x={labelX} y={y+55} anchor="start" size={portrait?56:44} maxChars={portrait?15:19}/>
+    </g>;
+  })}</>;
 }
 
 function Orbit({spec,f,frames,w,h}) {
@@ -138,17 +187,24 @@ export function Scene({spec,frames,font,boldFont,image,cues=[],overlay=false,cen
     {overlay && <style>{`svg [fill="#192f3c"]{fill:none;stroke:none}svg text{paint-order:stroke;stroke:#000;stroke-width:2px;stroke-linejoin:round}svg{filter:drop-shadow(0 2px 3px #000)}`}</style>}
     {!overlay && <div style={{position:'absolute',top:compact?'3%':'6.5%',left:'8%',fontSize:compact?22:portrait?28:25,letterSpacing:4,color:teal}}>SCIENCE / EXPLAINED</div>}
     <div style={{position:'absolute',top:'10%',left:'8%',width:'84%',textAlign:centered?'center':'left',fontWeight:700,fontSize:compact?54:portrait?72:64,lineHeight:1.08,textShadow:overlay?'0 2px 6px #000':undefined,transform:`translateY(${interpolate(f,[0,16],[12,0],clamp)}px)`,opacity:interpolate(f,[0,12],[0,1],clamp)}}>{spec.title}</div>
-    {photo?<div style={{position:'absolute',top:'26%',left:'8%',width:'84%',height:'38%',borderRadius:24,overflow:'hidden'}}>
-      <Img src={image} style={{width:'100%',height:'100%',objectFit:'cover',transform:`scale(${1+.045*f/frames})`}}/>
-      <div style={{position:'absolute',inset:0,background:'linear-gradient(transparent 35%,rgba(8,20,29,.9))'}}/>
-      <div style={{position:'absolute',bottom:35,left:35,fontSize:portrait?36:32}}>{spec.nodes.map(n=>n.label).join(' · ')}</div>
-    </div>:<svg viewBox={`0 0 ${w} ${h}`} style={{position:'absolute',left:'4%',width:'92%',top:portrait?'22%':'24%',height:portrait?'43%':'46%',overflow:'visible'}}>
+    {photo?<>
+      <Img src={image} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',transform:`scale(${1+.035*Math.min(1,f/Math.max(1,frames*.7))})`}}/>
+      <AbsoluteFill style={{background:'linear-gradient(rgba(8,20,29,.65),transparent 34%,rgba(8,20,29,.82))'}}/>
+      <div style={{position:'absolute',top:'10%',left:'8%',width:'84%',fontSize:portrait?72:64,fontWeight:700,lineHeight:1.08,textAlign:centered?'center':'left'}}>{spec.title}</div>
+      <div style={{position:'absolute',left:'8%',bottom:'25%',width:'84%',display:'flex',gap:30,flexWrap:'wrap'}}>
+        {spec.nodes.map((node,i)=>{const beat=beatState(f,i,cues,frames,spec.nodes.length,spec.treatment || 'assemble');
+          return <div key={i} style={{fontSize:portrait?40:36,fontWeight:700,opacity:beat.opacity,transform:`translateY(${beat.shift}px) rotate(${beat.rotation}deg)`,borderBottom:`3px solid ${palette[i]}`,paddingBottom:10,textShadow:'0 2px 5px #000'}}>{node.label}</div>;
+        })}
+      </div>
+    </>:<svg viewBox={`0 0 ${w} ${h}`} style={{position:'absolute',left:'4%',width:'92%',top:portrait?'22%':'24%',height:portrait?'43%':'46%',overflow:'visible'}}>
       {['flow','transport'].includes(spec.template)&&<Flow {...common}/>}
       {spec.template==='bars'&&<Bars {...common}/>}
       {spec.template==='comparison'&&<Comparison {...common}/>}
       {spec.template==='orbit'&&<Orbit {...common}/>}
       {spec.template==='refraction'&&<Refraction {...common}/>}
+      {spec.template==='cycle'&&<Cycle {...common}/>}
+      {spec.template==='layers'&&<Layers {...common}/>}
     </svg>}
-    <div style={{position:'absolute',top:portrait?'65.5%':'73%',left:'8%',width:'84%',textAlign:centered?'center':'left',fontSize:portrait?25:23,color:muted}}>{spec.template==='bars'?'Shared scale · zero baseline':photo?'Documentary image':'Schematic · not to scale'}</div>
+    <div style={{position:'absolute',top:photo?'21%':portrait?'65.5%':'73%',left:'8%',width:'84%',textAlign:centered?'center':'left',fontSize:portrait?25:23,color:photo?ink:muted,textShadow:photo?'0 2px 5px #000':undefined}}>{spec.template==='bars'?'Shared scale · zero baseline':photo?'Documentary image':'Schematic · not to scale'}</div>
   </AbsoluteFill>;
 }

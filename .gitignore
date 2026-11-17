@@ -89,3 +89,5 @@ motion/.renderer-ready
 .remotion/
 motion/.remotion/
 automation/storage/motion_cache/
+
+automation/storage/motion-review/

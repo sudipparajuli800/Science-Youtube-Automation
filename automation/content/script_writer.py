@@ -443,7 +443,9 @@ a visible photographable subject or experiment, not an abstract process or topic
 Also provide ai_video_prompt (subject/action/camera for illustrations),
 named_entity (optional short label),
 stat_data (null or value/unit/label), bar_data (null or label/value objects).
-Use animation for causal processes, transport, comparisons, orbits and diagrams.
+Use animation for causal processes, transport, comparisons, cycles, layers, orbits and diagrams.
+Use cycle only for an explicitly repeated loop; layers only for a described cross-section.
+Give animation.treatment one of draw, assemble, focus. Do not force unrelated nouns into a diagram.
 Each animation scene needs animation: {{"template":"flow","title":"Short title",
 "nodes":[{{"label_word_ids":[0,1],"icon":"water"}},{{"label_word_ids":[5],"icon":"leaf"}}]}}.
 For diagram nodes, choose 1-4 word IDs from that shot's words map for label_word_ids.

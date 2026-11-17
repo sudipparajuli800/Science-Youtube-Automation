@@ -1,5 +1,5 @@
 import {bundle} from '@remotion/bundler';
-import {renderMedia, selectComposition} from '@remotion/renderer';
+import {renderMedia, renderStill, selectComposition} from '@remotion/renderer';
 import {readFile, writeFile, mkdir} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
@@ -13,7 +13,7 @@ const props = JSON.parse(await readFile(propsFile, 'utf8'));
 props.font = (await readFile(path.join(root, '../automation/fonts/Barlow-Regular.ttf'))).toString('base64');
 props.boldFont = (await readFile(path.join(root, '../automation/fonts/Barlow-Bold.ttf'))).toString('base64');
 const version = crypto.createHash('sha256');
-for (const name of ['src/index.jsx', 'src/Scene.jsx', 'package-lock.json']) {
+for (const name of ['src/index.jsx', 'src/Scene.jsx', 'src/storytelling.mjs', 'package-lock.json']) {
   version.update(await readFile(path.join(root, name)));
 }
 const stamp = version.digest('hex');
@@ -30,3 +30,15 @@ await mkdir(path.dirname(path.resolve(output)), {recursive: true});
 await renderMedia({...options, composition, outputLocation: output, codec: 'h264',
   pixelFormat: 'yuv420p', crf: 18, concurrency: 1});
 console.log(`Rendered ${props.spec.template}: ${output}`);
+if (process.argv.includes('--review')) {
+  const samples = [.08, .5, .96].map(p => Math.min(props.frames - 1, Math.floor(props.frames * p)));
+  const stills = [];
+  for (let i = 0; i < samples.length; i++) {
+    const filename = `${output}.review-${i + 1}.png`;
+    await renderStill({...options, composition, frame: samples[i], output: filename,
+      imageFormat: 'png'});
+    stills.push({frame: samples[i], path: path.resolve(filename)});
+  }
+  await writeFile(`${output}.review.json`, JSON.stringify({template: props.spec.template,
+    width: props.width, height: props.height, frames: props.frames, stills}, null, 2));
+}

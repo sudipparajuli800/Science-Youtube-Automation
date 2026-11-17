@@ -13,8 +13,8 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 MOTION = ROOT / 'motion'
-TEMPLATES = {'flow', 'transport', 'comparison', 'bars', 'orbit', 'refraction', 'photo'}
-ICONS = {'particle', 'leaf', 'water', 'ocean', 'rock', 'sun', 'planet', 'cell', 'dna', 'atom', 'brain', 'magnet', 'telescope', 'microbe'}
+TEMPLATES = {'flow', 'transport', 'comparison', 'bars', 'orbit', 'refraction', 'photo', 'cycle', 'layers'}
+ICONS = {'particle', 'leaf', 'water', 'ocean', 'rock', 'sun', 'planet', 'cell', 'dna', 'atom', 'brain', 'magnet', 'telescope', 'microbe', 'cloud', 'rain', 'thermometer', 'microscope', 'heart', 'lightning'}
 STOP = {'the', 'a', 'an', 'of', 'and', 'in', 'to', 'from', 'with', 'on', 'for'}
 
 
@@ -41,6 +41,17 @@ def validate_animation(raw, narration, topic=''):
     if not _numbers(title).issubset(numbers):
         return None
     spec = {'template': kind, 'title': title}
+    treatment = raw.get('treatment')
+    if isinstance(treatment, str) and treatment in {'draw', 'assemble', 'focus'}:
+        spec['treatment'] = treatment
+    words = _words(narration)
+    if kind == 'cycle' and not (words & {'cycle', 'cyclic', 'loop', 'return'} or
+                                any(word.startswith(('repeat', 'recycl')) for word in words)):
+        return None
+    if kind == 'cycle' and re.search(r"\b(?:not|never|doesn't|cannot)\s+(?:repeat|return|cycle)", narration.lower()):
+        return None
+    if kind == 'layers' and not words & {'layer', 'shell', 'crust', 'mantle', 'core', 'membrane', 'skin', 'surface'}:
+        return None
     if kind in ('refraction', 'orbit') and re.search(r"\b(?:not|never|doesn't|don't|cannot|can't)\s+(?:bend|refract|orbit|revolve)", narration.lower()):
         return None
     if kind == 'refraction':
@@ -48,6 +59,8 @@ def validate_animation(raw, narration, topic=''):
         return spec if {'air', 'water'} <= words and words & {'light', 'refraction', 'ray'} else None
     items = raw.get('items') if kind == 'bars' else raw.get('nodes')
     minimum, maximum = (2, 5) if kind == 'bars' else (1, 3) if kind == 'photo' else (2, 4)
+    if kind == 'cycle':
+        minimum = 3
     if kind in ('comparison', 'orbit'):
         minimum = maximum = 2
     if not isinstance(items, list) or not minimum <= len(items) <= maximum:
@@ -140,7 +153,7 @@ def render_animation(spec, duration, width, height, image_path=None, word_offset
             image.save(buffer, format='JPEG', quality=90)
             props['image'] = 'data:image/jpeg;base64,' + base64.b64encode(buffer.getvalue()).decode()
     digest = hashlib.sha256(json.dumps(props, sort_keys=True).encode())
-    for name in ('src/index.jsx', 'src/Scene.jsx', 'render.mjs', 'package-lock.json'):
+    for name in ('src/index.jsx', 'src/Scene.jsx', 'src/storytelling.mjs', 'render.mjs', 'package-lock.json'):
         digest.update((MOTION / name).read_bytes())
     key = digest.hexdigest()
     cache = ROOT / 'automation/storage/motion_cache'

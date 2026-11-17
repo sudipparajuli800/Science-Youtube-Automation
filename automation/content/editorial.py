@@ -19,15 +19,23 @@ describe that visible subject, not the full scientific claim or topic title.
 A new shot must add explanatory information, not repeat the previous label.
 Text is for short labels, captions or a useful number, not a wall of narration.
 Animation data must use one of: flow, transport, comparison, bars, orbit, refraction,
-photo. Use 2-4 short nodes for flow/transport; exactly two for comparison/orbit.
+photo, cycle, layers. Use 2-4 short nodes for flow/transport; exactly two for comparison/orbit.
 Each node uses source word IDs to build its label (1-4 words from this scene) and icon (particle, leaf, water,
-ocean, rock, sun, planet, cell, dna, atom, brain, magnet, telescope, microbe). Give the animation a concise title. Flow arrows must
+ocean, rock, sun, planet, cell, dna, atom, brain, magnet, telescope, microbe, cloud, rain, thermometer, microscope, heart, lightning). Give the animation a concise title. Flow arrows must
 follow a relationship actually explained in the narration. Bars need spoken values
 and one shared unit. Refraction illustrates air-to-water light bending only. Photo
 uses a verified image and short subject labels. Do not use animations as measured
 simulations or add numerical claims that are absent from the script. No mandatory hook_question, typewriter, chart, or AI-video quota.
 Use kinetic_stat only for a value explicitly spoken; data_bars only when ALL values
 are spoken, comparable, and share units. Never invent comparison data.
+Use cycle (3-4 nodes) only for a repeated process that returns to its starting state.
+Use layers (2-4 nodes) for an explicitly described cross-section, membrane or layered
+structure; order the nodes from outer to inner only when that order is stated.
+These are conceptual schematics, not measured anatomy or molecular structures.
+Choose animation.treatment: draw for a developing explanation, assemble for a
+small set of related subjects, focus for a comparison. Keep one consistent palette.
+Reveal each subject as it is spoken, then leave the completed explanation visible.
+Do not request stock photographs of charts, diagrams or unseen experimental results.
 Prefer real footage/photos for named people, discoveries and historical events.
 Use ai_video for 1-2 useful illustrative shots that stock cannot show, such as a
 hypothetical exoplanet environment. Describe a specific subject, action and camera

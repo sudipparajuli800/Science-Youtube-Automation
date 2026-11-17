@@ -6,6 +6,8 @@ For short image headlines and clean public captions, see [Social post styling](S
 
 For script-driven Remotion diagrams, charts and image animation, see [Motion graphics](MOTION_GRAPHICS.md).
 
+For the reviewed animation repos, new cycle/layer graphics and local visual review, see [Visual storytelling](VISUAL_STORYTELLING.md).
+
 For hosted Wan video generation or a free-cloud-GPU visual bank, see [Video generation setup](VIDEO_GENERATION_SETUP.md).
 
 ## Features

@@ -15,11 +15,13 @@ available when they suit a scene.
 | bars | Reveal comparable numerical values | 2–5 labeled values and a shared unit |
 | orbit | Show a conceptual orbit around a named body | Center and orbiting body |
 | refraction | Illustrate a ray bending from air into water | Title; matching narration |
+| cycle | Explain a repeated loop | 3–4 source-grounded nodes and explicit cyclic narration |
+| layers | Explain a conceptual cross-section | 2–4 source-grounded structural layers |
 | photo | Animate a verified photo with short subject labels | 1–3 labels and image cue |
 
 Nodes have `label` and `icon`. Icons are `particle`, `leaf`, `water`, `ocean`,
 `rock`, `sun`, `planet`, `cell`, `dna`, `atom`, `brain`, `microbe`,
-`magnet` or `telescope`. The scene writer selects a template and provides
+`magnet`, `telescope`, `cloud`, `rain`, `thermometer`, `microscope`, `heart` or `lightning`. The scene writer selects a template and provides
 data; it cannot supply JavaScript, HTML, arbitrary file paths or executable hooks.
 
 For example, this can illustrate a scene narrating that Saharan dust travels across
@@ -116,3 +118,8 @@ Remotion is pinned to 4.0.541 across its packages. Consult its
 eligibility and company licensing. CPU runner time, downloads and storage still
 apply. The animation code uses [Remotion's renderer](https://www.remotion.dev/docs/renderer/render-media)
 and does not require a GPU inference service.
+
+## Storytelling and review
+
+See [Visual storytelling](VISUAL_STORYTELLING.md) for source reviews, narration-timed
+`draw`/`assemble`/`focus` treatments, cycle/layer diagrams and offline contact-sheet review.
