@@ -196,7 +196,7 @@ export function Scene({spec,frames,font,boldFont,image,cues=[],overlay=false,cen
           return <div key={i} style={{fontSize:portrait?40:36,fontWeight:700,opacity:beat.opacity,transform:`translateY(${beat.shift}px) rotate(${beat.rotation}deg)`,borderBottom:`3px solid ${palette[i]}`,paddingBottom:10,textShadow:'0 2px 5px #000'}}>{node.label}</div>;
         })}
       </div>
-    </>:<svg viewBox={`0 0 ${w} ${h}`} style={{position:'absolute',left:'4%',width:'92%',top:portrait?'22%':'24%',height:portrait?'43%':'46%',overflow:'visible'}}>
+    </>:<svg viewBox={`0 0 ${w} ${h}`} style={{position:'absolute',left:'4%',width:'92%',top:portrait?'22%':'24%',height:overlay?'56%':portrait?'49%':'52%',overflow:'visible'}}>
       {['flow','transport'].includes(spec.template)&&<Flow {...common}/>}
       {spec.template==='bars'&&<Bars {...common}/>}
       {spec.template==='comparison'&&<Comparison {...common}/>}
@@ -205,6 +205,6 @@ export function Scene({spec,frames,font,boldFont,image,cues=[],overlay=false,cen
       {spec.template==='cycle'&&<Cycle {...common}/>}
       {spec.template==='layers'&&<Layers {...common}/>}
     </svg>}
-    <div style={{position:'absolute',top:photo?'21%':portrait?'65.5%':'73%',left:'8%',width:'84%',textAlign:centered?'center':'left',fontSize:portrait?25:23,color:photo?ink:muted,textShadow:photo?'0 2px 5px #000':undefined}}>{spec.template==='bars'?'Shared scale · zero baseline':photo?'Documentary image':'Schematic · not to scale'}</div>
+
   </AbsoluteFill>;
 }

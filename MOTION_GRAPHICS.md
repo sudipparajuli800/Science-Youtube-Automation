@@ -47,8 +47,8 @@ the Atlantic to the Amazon:
 
 Set `media_context: true` on an animation scene and provide `image_cue`.
 The orchestrator checks one video and, if needed, one photo against the narration.
-Verified media fills one continuous background. A gentle shade behind the
-explanation supports transparent diagrams and larger, semibold labels. The same layout supports still photos
+Verified media fills one continuous background. A feathered local blur and dimming
+behind the explanation separate larger diagrams and semibold labels from image detail. The same layout supports still photos
 and looping footage. If no verified context is available, the diagram stands alone.
 Captions use outlined type without a filled box. Context media provenance is stored as `context_source` in the manifest.
 
@@ -70,7 +70,7 @@ longer fabricates example chart values when data is missing. These checks enforc
 script consistency, not independent scientific accuracy. Review causal arrows,
 labels, comparisons and the script's scientific claims before publishing.
 
-Diagrams are labeled schematic and are not numerical simulations. The orbit and
+Diagrams are conceptual schematics, without a repeated on-screen footer, and are not numerical simulations. The orbit and
 air/water refraction templates are qualitative explanations, not measured data or
 general physics solvers. Arbitrary narration is not automatically converted into
 a fake process. Limited transport/refraction fallbacks recognize explicit matching

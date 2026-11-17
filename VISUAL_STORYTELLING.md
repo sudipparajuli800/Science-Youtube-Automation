@@ -20,7 +20,7 @@ a commercial-use license purchase or a new video-generation API.
   identify a loop; one-way processes do not qualify.
 - `layers`: 2–4 conceptual structural bands with source-grounded labels. The
   director must preserve any stated outer-to-inner order. Bands have no measured
-  thickness, so these are labeled schematics.
+  thickness, so these are conceptual schematics.
 - `animation.treatment`: `draw`, `assemble` or `focus`. Spoken word cues control
   entrances; the final graphic remains available to read. Unknown treatments are
   discarded, not executed.
