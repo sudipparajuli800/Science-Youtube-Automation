@@ -117,5 +117,10 @@
     "date": "2026-11-18",
     "state": "failed",
     "provider": "kie"
+  },
+  "620abc42d758f01ec734f01db06b18f00646c719076fbdc4a2e7bf1038bb828b": {
+    "date": "2026-11-19",
+    "state": "failed",
+    "provider": "kie"
   }
 }
