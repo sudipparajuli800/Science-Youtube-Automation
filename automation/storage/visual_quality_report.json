@@ -1,11 +1,11 @@
 {
-  "status": "held",
+  "status": "ready",
   "scenes": 6,
   "moving_scenes": 3,
   "footage_scenes": 0,
   "animation_scenes": 3,
-  "cards": 2,
-  "contextual_scenes": 1,
+  "cards": 1,
+  "contextual_scenes": 3,
   "kie_key_configured": true,
   "fal_key_configured": true,
   "local_relevance_enabled": true
